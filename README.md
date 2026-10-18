@@ -1,43 +1,74 @@
-# Bingo Send
+<p align="center">
+  <img src="assets/hero.svg" alt="Bingo Send — say it, send it" width="100%">
+</p>
 
-**Keep your input method. End a message with “Bingo” to send it.**
+<p align="center"><strong>Keep your favorite input method. End your message with “Bingo” to send it.</strong></p>
 
-Bingo Send is a standalone macOS menu bar app. Once dictated or typed text settles, it detects a final keyword, checks the focused editor and caret, and posts the configured send shortcut. **The entire draft, including Bingo, is preserved.**
+<p align="center">
+  <a href="https://github.com/yangyang2049/bingo-send/releases/latest"><img src="https://img.shields.io/github/v/release/yangyang2049/bingo-send?style=flat-square&color=126E6B" alt="Latest release"></a>
+  <a href="https://github.com/yangyang2049/bingo-send/actions/workflows/ci.yml"><img src="https://github.com/yangyang2049/bingo-send/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="docs/COMPATIBILITY.md"><img src="https://img.shields.io/badge/target-macOS%2013%2B-333333?style=flat-square&logo=apple&logoColor=white" alt="Targets macOS 13 and later"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-22a06b?style=flat-square" alt="MIT license"></a>
+</p>
 
-**English** · [简体中文](README.zh-CN.md) · [GitHub](https://github.com/yangyang2049/bingo-send) · [User guide](docs/USER_GUIDE.md) · [Compatibility](docs/COMPATIBILITY.md) · [Privacy](docs/PRIVACY.md)
+<p align="center">
+  <a href="https://github.com/yangyang2049/bingo-send/releases/download/v1.1.1/BingoSend-1.1.1-macOS-universal.dmg"><img src="https://img.shields.io/badge/Download_for_macOS-1.1.1-126E6B?style=for-the-badge&logo=apple&logoColor=white" alt="Download Bingo Send 1.1.1 for macOS"></a>
+</p>
 
-## Install
+<p align="center">
+  <strong>English</strong> · <a href="README.zh-CN.md">简体中文</a> · <a href="docs/USER_GUIDE.md">User guide</a> · <a href="https://github.com/yangyang2049/bingo-send/releases/latest">All downloads</a>
+</p>
 
-Download the [1.1.1 universal DMG](https://github.com/yangyang2049/bingo-send/releases/download/v1.1.1/BingoSend-1.1.1-macOS-universal.dmg), or find the latest version in [Releases](https://github.com/yangyang2049/bingo-send/releases/latest). Drag Bingo Send into Applications and open it. A universal build includes Apple Silicon and Intel binaries. No Codex, Skill, Xcode, or command-line tools are required to use the app.
+Bingo Send is a standalone macOS menu bar app. It watches the focused editor in apps you enable, waits for text to settle, then triggers the configured send shortcut. **Your entire message, including Bingo, stays unchanged.** No Skill or AI agent is needed.
 
-Grant Accessibility permission in System Settings, enable the target app, and check its send shortcut. Codex defaults to Return. Test with the default detection-only mode, then disable it for actual sending. The app starts paused on every launch.
+```text
+“Review this page, Bingo.” → text settles → sends “Review this page, Bingo.”
+```
 
-Current packages are ad-hoc signed and are not Apple notarized. See [Apple’s opening instructions](https://support.apple.com/102445) if Gatekeeper blocks launch. Accessibility permission always requires the user’s own action.
+## Start in three steps
 
-## Scope
+1. **Install.** Open the [universal DMG](https://github.com/yangyang2049/bingo-send/releases/download/v1.1.1/BingoSend-1.1.1-macOS-universal.dmg), drag Bingo Send into Applications, and open it. The package contains Apple Silicon and Intel binaries.
+2. **Authorize and choose an app.** Grant Accessibility permission in System Settings yourself. Enable your target app and check its shortcut; Codex defaults to **Return**. Configure allowed domains for browsers.
+3. **Try, then enable sending.** Turn on keyword sending with the default detection-only mode. After a successful detection, turn off detection-only mode to send messages. **Every launch starts paused.**
 
-- Custom final keyword, case-insensitive English matching, trailing punctuation supported.
-- Adjustable stabilization delay, 0.5–3 seconds.
-- App allowlist and configurable Return / Command-Return / Control-Return.
-- Known browsers enforce domain restrictions. Enable “按网页域名限制” manually for unrecognized browsers.
-- No recording, networking, stored drafts, text edits, selection changes, or clipboard access.
+The app interface is currently **Chinese**. See the [English guide](docs/USER_GUIDE.md) for the corresponding controls.
 
-Version 1.1.0 was confirmed working in Codex by a user. Version 1.1.1 retains its core sending logic and has passed build, signature, and packaging checks. Other apps and websites require separate validation. The target editor must expose readable Accessibility text and caret information. The package targets macOS 13+, but the minimum OS version and Intel runtime still need physical-device verification.
+## Small app, focused job
 
-Input methods remain responsible for dictation. Bingo Send cannot end their recording sessions. Typed and pasted text can also trigger sending. The app interface is currently in Chinese. Project documentation is available in English and Simplified Chinese; app localization can be contributed in a future update.
+- **Your input method:** works on text after dictation, typing, or pasting.
+- **Your keyword:** customizable suffix; English case, trailing spaces, and punctuation are handled. Stabilization delay: 0.5–3 seconds.
+- **Your apps:** explicit app allowlist, domain restrictions, and Return / ⌘ Return / ⌃ Return shortcuts.
+- **Local processing:** no recording, networking, saved drafts, text edits, selection changes, or clipboard access. [Privacy →](docs/PRIVACY.md)
 
-## Build
+## Compatibility
 
-Requires macOS and Swift 5.9+ from Xcode or Command Line Tools. No external dependencies.
+**Codex was user-tested successfully with 1.1.0.** Version 1.1.1 retains that sending logic and passed build, signature, and packaging checks. Other apps and websites—including WorkBuddy, DeepSeek, and Hugging Face—**still need separate validation**. An allowlist entry is not a compatibility guarantee. [Compatibility details →](docs/COMPATIBILITY.md)
+
+<details>
+<summary>Before you install: permissions and limitations</summary>
+
+- Packages are **ad-hoc signed, not Apple notarized**. If macOS blocks opening, follow [Apple’s instructions](https://support.apple.com/102445). Accessibility access requires your manual approval.
+- The project targets **macOS 13+**; the minimum OS and **Intel runtime have not been tested on physical devices**.
+- Editors must expose readable Accessibility text and caret information. The caret must be at the end, with no selection.
+- Known browsers require domain restrictions. For an unrecognized browser, enable “按网页域名限制” manually.
+- Bingo Send **cannot stop your input method’s recording session**. It acts only after text appears; adjust the delay for continuous transcription.
+
+</details>
+
+## Build and contribute
+
+Requires macOS and Swift 5.9+ (Xcode or Command Line Tools). No external dependencies.
 
 ```sh
 swift test
 ./build.sh
-# Or build both architectures and package:
+# Universal build and release packages:
 ./build.sh --universal
 ./scripts/package-release.sh
 ```
 
-Output: `build/Bingo Send.app` and packages in `dist/`. See [release instructions](docs/RELEASING.md) for signing, notarization, and the manually dispatched draft-release workflow.
+Output: `build/Bingo Send.app`; packages: `dist/`.
 
-Contributions are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) and avoid sharing private drafts. Licensed under [MIT](LICENSE). Independent project; not affiliated with the input methods or AI products mentioned here.
+[Contributing](CONTRIBUTING.md) · [Release guide](docs/RELEASING.md) · [Report an issue](https://github.com/yangyang2049/bingo-send/issues/new/choose)
+
+Licensed under [MIT](LICENSE). Independent project; not affiliated with the input methods or AI products mentioned.
