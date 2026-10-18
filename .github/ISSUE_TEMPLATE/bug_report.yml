@@ -1,0 +1,27 @@
+name: Bug or compatibility / 问题或兼容性反馈
+description: Report detection, sending, or compatibility issues / 报告检测、发送或兼容性问题
+body:
+  - type: markdown
+    attributes:
+      value: Use non-private test content. Do not paste real chats, accounts, credentials, or exported settings. / 请使用无隐私的测试内容，不要粘贴真实聊天、账号、凭据或设置导出。
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment / 环境
+      description: macOS version, Apple Silicon or Intel, Bingo Send version, target app and version, and input method. / macOS 版本、Apple Silicon 或 Intel、Bingo Send 版本、目标应用及版本、输入法。
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce / 复现步骤
+      description: Include the send shortcut, detection mode, domain restrictions, and a non-private test sentence. / 包括发送按键、检测模式、域名限制，以及使用的无隐私测试句。
+    validations:
+      required: true
+  - type: textarea
+    id: result
+    attributes:
+      label: Expected and actual results, status / 预期、实际结果与状态提示
+      description: Did it only beep, preserve the keyword, or require manual sending? Include fixed status text, not real chats. / 说明是否只响了一声、是否保留口令、是否由你手动发送。可贴固定状态提示，不贴真实聊天。
+    validations:
+      required: true

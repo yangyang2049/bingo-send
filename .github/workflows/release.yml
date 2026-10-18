@@ -1,0 +1,93 @@
+name: Prepare draft release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Existing tag version, without v (for example 1.1.1)'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ inputs.version }}
+  cancel-in-progress: false
+
+jobs:
+  package-and-draft:
+    runs-on: macos-15
+    timeout-minutes: 30
+    permissions:
+      contents: write
+    env:
+      RELEASE_VERSION: ${{ inputs.version }}
+    steps:
+      - name: Validate requested version
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ ! "$RELEASE_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            printf 'Use a version such as 1.1.1, without v.\n' >&2
+            exit 1
+          fi
+      - name: Check out existing version tag
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: refs/tags/v${{ inputs.version }}
+          persist-credentials: false
+      - name: Verify bundle version
+        shell: bash
+        run: |
+          set -euo pipefail
+          BUNDLE_VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' Info.plist)"
+          if [[ "$BUNDLE_VERSION" != "$RELEASE_VERSION" ]]; then
+            printf 'Info.plist version must match the requested tag.\n' >&2
+            exit 1
+          fi
+      - name: Test
+        run: swift test
+      - name: Build universal app
+        run: ./build.sh --universal
+      - name: Package app
+        run: ./scripts/package-release.sh
+      - name: Preserve release packages
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: BingoSend-${{ inputs.version }}-macOS-universal
+          path: |
+            dist/*.zip
+            dist/*.dmg
+            dist/SHA256SUMS.txt
+          if-no-files-found: error
+          compression-level: 0
+      - name: Create draft GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > "$RUNNER_TEMP/bingo-release-notes.md" <<'NOTES'
+          macOS 13 or later. Includes Apple Silicon and Intel builds.
+
+          Open the DMG and drag Bingo Send into Applications, or extract the ZIP.
+          This CI build is ad hoc signed and has not been notarized by Apple.
+          Complete macOS Accessibility authorization before enabling automatic sending.
+
+          Review the installation instructions and test the packaged app before publishing this draft.
+
+          ---
+
+          macOS 13 及以上，包含 Apple Silicon 与 Intel 架构。
+
+          打开 DMG，将 Bingo Send 拖入应用程序，或解压 ZIP。
+          此 CI 构建使用临时签名，未经 Apple 公证。
+          首次使用请手动授予辅助功能权限，再启用自动发送。
+
+          发布草稿前，请检查安装说明并验证安装包。
+          NOTES
+          gh release create "v$RELEASE_VERSION" dist/*.zip dist/*.dmg dist/SHA256SUMS.txt \
+            --verify-tag --draft --title "Bingo Send $RELEASE_VERSION" \
+            --notes-file "$RUNNER_TEMP/bingo-release-notes.md"
