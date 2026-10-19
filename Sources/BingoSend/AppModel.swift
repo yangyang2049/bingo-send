@@ -78,14 +78,14 @@ final class AppModel: ObservableObject {
     }
     @Published var isEnabled = false {
         didSet {
-            if !isEnabled { sendingTask?.cancel(); status = "已暂停" }
+            if !isEnabled { sendingTask?.cancel(); status = L10n.text(zh: "已暂停", en: "Paused") }
             if isEnabled { sendFailureMessage = nil }
             engine.reset()
         }
     }
     @Published private(set) var isTrusted = false
-    @Published private(set) var status = "已暂停"
-    @Published private(set) var lastEvent = "还没有检测记录"
+    @Published private(set) var status = L10n.text(zh: "已暂停", en: "Paused")
+    @Published private(set) var lastEvent = L10n.text(zh: "还没有检测记录", en: "No detection events yet")
     @Published private(set) var activeApp = ""
     @Published private(set) var isSending = false
     @Published private(set) var sendFailureMessage: String?
@@ -124,8 +124,8 @@ final class AppModel: ObservableObject {
 
     func addApplication() {
         let picker = NSOpenPanel()
-        picker.title = "选择要启用的 AI 应用或浏览器"
-        picker.prompt = "添加应用"
+        picker.title = L10n.text(zh: "选择要启用的 AI 应用或浏览器", en: "Choose an AI app or browser to enable")
+        picker.prompt = L10n.text(zh: "添加应用", en: "Add App")
         picker.allowedContentTypes = [.application]
         picker.canChooseDirectories = false
         picker.allowsMultipleSelection = false
@@ -194,16 +194,16 @@ final class AppModel: ObservableObject {
         let trusted = AccessibilityClient.isTrusted
         if trusted != isTrusted { isTrusted = trusted }
         guard isEnabled else { return }
-        guard trusted else { engine.reset(); status = "请先授权辅助功能"; return }
-        guard keywordIsValid else { engine.reset(); status = "请填写有效的口令"; return }
+        guard trusted else { engine.reset(); status = L10n.text(zh: "请先授权辅助功能", en: "Allow Accessibility first"); return }
+        guard keywordIsValid else { engine.reset(); status = L10n.text(zh: "请填写有效的口令", en: "Enter a valid trigger"); return }
         guard !isSending else { return }
         guard let app = client.currentApplicationIdentity(),
               app.bundleIdentifier != Bundle.main.bundleIdentifier else {
-            suspendObservation(); status = "等待切换到已启用的应用"; return
+            suspendObservation(); status = L10n.text(zh: "等待切换到已启用的应用", en: "Waiting for an enabled app"); return
         }
         activeApp = app.name
         guard let rule = preferences.rules.first(where: { $0.enabled && $0.bundleIdentifier == app.bundleIdentifier }) else {
-            suspendObservation(); status = "\(app.name) 未启用"; return
+            suspendObservation(); status = L10n.text(zh: "\(app.name) 未启用", en: "\(app.name) is not enabled"); return
         }
         do {
             let hosts = rule.needsDomainCheck ? rule.hosts : nil
@@ -213,20 +213,29 @@ final class AppModel: ObservableObject {
             let observationTime = ProcessInfo.processInfo.systemUptime
             if observationTime - lastObservedAt > 180 { engine.reset() }
             lastObservedAt = observationTime
-            status = preferences.detectOnly ? "\(rule.name)：仅检测，不发送" : "\(rule.name)：等待句尾口令"
+            status = preferences.detectOnly
+                ? L10n.text(zh: "\(rule.name)：仅检测，不发送", en: "\(rule.name): detect only; sending is off")
+                : L10n.text(zh: "\(rule.name)：等待句尾口令", en: "\(rule.name): waiting for the final trigger")
             let delay = min(3, max(0.5, preferences.stabilityDelay))
             guard engine.observe(draft.snapshot, now: ProcessInfo.processInfo.systemUptime,
                 keyword: preferences.keyword, delay: delay) != nil else { return }
             if preferences.detectOnly {
-                lastEvent = "\(timeLabel()) · \(rule.name)：识别到口令，未修改、未发送"
-                status = "检测成功 · 可关闭「只检测」启用发送"
+                lastEvent = L10n.text(zh: "\(timeLabel()) · \(rule.name)：识别到口令，未修改、未发送",
+                    en: "\(timeLabel()) · \(rule.name): trigger detected; draft unchanged and not sent")
+                status = L10n.text(zh: "检测成功 · 可关闭「只检测」启用发送", en: "Trigger detected · Turn off Detect Only to enable sending")
                 NSSound.beep()
                 return
             }
             isSending = true
             let removalKeyword = preferences.removeTriggerBeforeSend ? preferences.keyword : nil
-            status = removalKeyword == nil ? "正在发送完整正文…" : "正在移除句尾口令并核验…"
-            lastEvent = "\(timeLabel()) · \(rule.name)：已识别口令，正在\(removalKeyword == nil ? "原样发送" : "处理句尾口令")"
+            status = removalKeyword == nil
+                ? L10n.text(zh: "正在发送完整正文…", en: "Sending the complete draft…")
+                : L10n.text(zh: "正在移除句尾口令并核验…", en: "Removing and verifying the final trigger…")
+            lastEvent = removalKeyword == nil
+                ? L10n.text(zh: "\(timeLabel()) · \(rule.name)：已识别口令，正在原样发送",
+                    en: "\(timeLabel()) · \(rule.name): trigger detected; sending unchanged")
+                : L10n.text(zh: "\(timeLabel()) · \(rule.name)：已识别口令，正在处理句尾口令",
+                    en: "\(timeLabel()) · \(rule.name): trigger detected; processing the final trigger")
             sendingTask = Task { @MainActor [weak self] in
                 guard let self else { return }
                 defer { self.isSending = false; self.engine.reset(); self.sendingTask = nil }
@@ -234,21 +243,27 @@ final class AppModel: ObservableObject {
                     try Task.checkCancellation()
                     try await self.client.sendDraft(draft, shortcut: rule.shortcut,
                         allowedPageHosts: hosts, removeKeyword: removalKeyword)
-                    self.lastEvent = "\(self.timeLabel()) · 已向 \(rule.name) 发出发送按键；请在目标应用确认"
-                    self.status = "已发出发送按键"
+                    self.lastEvent = L10n.text(zh: "\(self.timeLabel()) · 已向 \(rule.name) 发出发送按键；请在目标应用确认",
+                        en: "\(self.timeLabel()) · Send shortcut posted to \(rule.name); confirm in the target app")
+                    self.status = L10n.text(zh: "已发出发送按键", en: "Send shortcut posted")
                 } catch is CancellationError {
-                    self.lastEvent = "\(self.timeLabel()) · 已取消发送，请检查输入框\(removalKeyword == nil ? "" : "；草稿或选区可能已变化")"
-                    self.status = "已取消发送，请检查输入框"
+                    self.lastEvent = removalKeyword == nil
+                        ? L10n.text(zh: "\(self.timeLabel()) · 已取消发送，请检查输入框",
+                            en: "\(self.timeLabel()) · Sending cancelled; check the input")
+                        : L10n.text(zh: "\(self.timeLabel()) · 已取消发送，请检查输入框；草稿或选区可能已变化",
+                            en: "\(self.timeLabel()) · Sending cancelled; check the input. The draft or selection may have changed")
+                    self.status = L10n.text(zh: "已取消发送，请检查输入框", en: "Sending cancelled; check the input")
                 } catch {
                     self.isEnabled = false
                     self.sendFailureMessage = error.localizedDescription
-                    self.lastEvent = "\(self.timeLabel()) · 已暂停：\(error.localizedDescription)"
-                    self.status = "发送已中止，请检查原输入框"
+                    self.lastEvent = L10n.text(zh: "\(self.timeLabel()) · 已暂停：\(error.localizedDescription)",
+                        en: "\(self.timeLabel()) · Paused: \(error.localizedDescription)")
+                    self.status = L10n.text(zh: "发送已中止，请检查原输入框", en: "Sending stopped; check the original input")
                 }
             }
         } catch {
             suspendObservation()
-            status = "\(rule.name)：\(error.localizedDescription)"
+            status = L10n.text(zh: "\(rule.name)：\(error.localizedDescription)", en: "\(rule.name): \(error.localizedDescription)")
         }
     }
 

@@ -28,23 +28,23 @@ Bingo Send is a standalone macOS menu bar app. It watches the focused editor in 
 ## Start in three steps
 
 1. **Install.** Open the [universal DMG](https://github.com/yangyang2049/bingo-send/releases/download/v1.2.0/BingoSend-1.2.0-macOS-universal.dmg), drag Bingo Send into Applications, and open it. The package contains Apple Silicon and Intel binaries.
-2. **Authorize and choose your setup.** Grant Accessibility permission in System Settings yourself. Choose an app or website from **App presets** (`应用预设`), or add an app manually. For a website, select your browser and review the allowed domains and send shortcut; Codex defaults to **Return**.
+2. **Authorize and choose your setup.** Grant Accessibility permission in System Settings yourself. Choose an app or website from **App presets**, or add an app manually. For a website, select your browser and review the allowed domains and send shortcut; Codex defaults to **Return**.
 3. **Choose a keyword and try it.** Select one preset keyword or enter your own. Turn on keyword sending with detection-only mode, test a new message, then turn off detection-only mode for actual sending. **Fresh installs start with every app disabled and detection-only on; every launch starts paused.** Existing saved settings are preserved.
 
-The app interface is currently **Chinese**. See the [English guide](docs/USER_GUIDE.md) for the corresponding controls.
+The interface follows your system’s preferred language: English or Simplified Chinese, with English as the fallback.
 
 ## Small app, focused job
 
 - **Your input method:** works on text after dictation, typing, or pasting.
-- **Your keyword:** choose Bingo, Submit, Send, 发送, 提交, 完成, 确认, 确定, or a custom suffix. One keyword is active at a time; English matching is case-insensitive and trailing spaces or punctuation are allowed. Stabilization delay: 0.5–3 seconds.
-- **Keep or remove:** keep the keyword by default, or opt in to **Remove final keyword before sending** (`发送前移除句尾口令`). Removal edits the focused draft and requires editor support; verify it separately in each app.
-- **Your setup:** 13 opt-in app and website presets, plus manual app selection. Web presets preserve existing allowed domains; all enabled sites in one browser share its Return / ⌘ Return / ⌃ Return shortcut.
+- **Your keyword:** choose Bingo, Submit, Send, 发送, 提交, 完成, 确认, 确定, or a custom suffix. One keyword is active at a time; keyword matching is case-insensitive and trailing spaces or punctuation are allowed. Stabilization delay: 0.5–3 seconds.
+- **Keep or remove:** keep the keyword by default, or opt in to **Remove final keyword before sending**. Removal edits the focused draft and requires editor support; verify it separately in each app.
+- **Your setup:** 13 opt-in app and website presets in one searchable list, plus manual app selection. Web presets preserve existing allowed domains; all enabled sites in one browser share its Return / ⌘ Return / ⌃ Return shortcut.
 - **Your scope:** explicit app allowlist and browser domain restrictions. Presets help configure scope; each editor still needs its own detection and send test.
 - **Local processing:** no recording, networking, saved drafts, or clipboard access. Default keep mode leaves text and selection untouched; optional removal edits only the matched final keyword and following punctuation or whitespace. [Privacy →](docs/PRIVACY.md)
 
 ## Compatibility
 
-**Codex was user-tested successfully with 1.1.0 in keep mode.** Version 1.2.0 adds setup presets, keyword choices, optional removal, and a new icon; see its [release notes](docs/RELEASE_NOTES_1.2.0.md) for verification status. Other apps and websites—including Claude, Gemini, Grok, WorkBuddy, DeepSeek, Kimi, and HuggingChat—**still need separate validation**. Keep mode and removal mode need separate tests. A preset or allowlist entry is not a compatibility guarantee. Terminal CLI tools are outside the preset coverage. [Compatibility details →](docs/COMPATIBILITY.md)
+**Codex was user-tested successfully with 1.1.0 in keep mode.** Version 1.2.0 adds setup presets, keyword choices, optional removal, a new icon, and an English/Simplified Chinese interface; see its [release notes](docs/RELEASE_NOTES_1.2.0.md) for verification status. Other apps and websites—including Claude, Gemini, Grok, WorkBuddy, DeepSeek, Kimi, and HuggingChat—**still need separate validation**. Keep mode and removal mode need separate tests. A preset or allowlist entry is not a compatibility guarantee. Terminal CLI tools are outside the preset coverage. [Compatibility details →](docs/COMPATIBILITY.md)
 
 <details>
 <summary>Before you install: permissions and limitations</summary>
@@ -53,7 +53,7 @@ The app interface is currently **Chinese**. See the [English guide](docs/USER_GU
 - The project targets **macOS 13+**; the minimum OS and **Intel runtime have not been tested on physical devices**.
 - Editors must expose readable Accessibility text and caret information. The caret must be at the end, with no selection.
 - Optional keyword removal also requires editing support. If verification fails, sending stops; an interrupted removal may leave the draft or selection changed. Check the target input before trying again.
-- Known browsers require domain restrictions. For an unrecognized browser, enable “按网页域名限制” manually.
+- Known browsers require domain restrictions. For an unrecognized browser, enable **Restrict by website domain** manually.
 - Bingo Send **cannot stop your input method’s recording session**. It acts only after text appears; adjust the delay for continuous transcription.
 
 </details>

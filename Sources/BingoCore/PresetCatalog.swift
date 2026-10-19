@@ -1,25 +1,20 @@
 import Foundation
 
-public enum AgentPresetGroup: String, CaseIterable {
-    case international
-    case china
-}
-
 /// A setup suggestion, not a claim that an editor has passed compatibility tests.
 public struct AgentPreset: Identifiable {
     public let id: String
     public let name: String
-    public let detail: String
-    public let group: AgentPresetGroup
+    public let detailZh: String
+    public let detailEn: String
     public let nativeBundleIDs: [String]
     public let webHosts: [String]
 
-    public init(id: String, name: String, detail: String, group: AgentPresetGroup,
+    public init(id: String, name: String, detailZh: String, detailEn: String,
                 nativeBundleIDs: [String], webHosts: [String]) {
         self.id = id
         self.name = name
-        self.detail = detail
-        self.group = group
+        self.detailZh = detailZh
+        self.detailEn = detailEn
         self.nativeBundleIDs = nativeBundleIDs
         self.webHosts = webHosts
     }
@@ -32,43 +27,56 @@ public enum AgentCatalog {
     // CLI tools and local web servers are deliberately not application presets.
     public static let presets: [AgentPreset] = [
         AgentPreset(id: "codex-chatgpt", name: "Codex / ChatGPT",
-                    detail: "OpenAI 桌面应用 / ChatGPT 网页版", group: .international,
+                    detailZh: "OpenAI 桌面应用 / ChatGPT 网页版",
+                    detailEn: "OpenAI desktop app / ChatGPT on the web",
                     nativeBundleIDs: ["com.openai.codex"], webHosts: ["chatgpt.com"]),
         AgentPreset(id: "claude", name: "Claude / Claude Code",
-                    detail: "Claude 网页版；桌面应用可手动添加，终端 CLI 需另行适配", group: .international,
+                    detailZh: "Claude 网页版；桌面应用可手动添加，终端 CLI 需另行适配",
+                    detailEn: "Claude on the web; add desktop apps manually. Terminal CLI tools need separate support.",
                     nativeBundleIDs: [], webHosts: ["claude.ai"]),
         AgentPreset(id: "gemini", name: "Gemini",
-                    detail: "Google Gemini 网页版", group: .international,
+                    detailZh: "Google Gemini 网页版",
+                    detailEn: "Google Gemini on the web",
                     nativeBundleIDs: [], webHosts: ["gemini.google.com"]),
         AgentPreset(id: "grok", name: "Grok",
-                    detail: "xAI 的 Grok 网页版", group: .international,
+                    detailZh: "xAI 的 Grok 网页版",
+                    detailEn: "Grok by xAI on the web",
                     nativeBundleIDs: [], webHosts: ["grok.com"]),
         AgentPreset(id: "cursor", name: "Cursor",
-                    detail: "Cursor 云端 Agent；桌面应用可手动添加", group: .international,
+                    detailZh: "Cursor 云端 Agent；桌面应用可手动添加",
+                    detailEn: "Cursor cloud agents; add the desktop app manually",
                     nativeBundleIDs: [], webHosts: ["cursor.com"]),
         AgentPreset(id: "huggingchat", name: "HuggingChat",
-                    detail: "Hugging Face 的网页聊天（huggingface.co/chat）", group: .international,
+                    detailZh: "Hugging Face 的网页聊天（huggingface.co/chat）",
+                    detailEn: "Hugging Face web chat at huggingface.co/chat",
                     nativeBundleIDs: [], webHosts: ["huggingface.co"]),
         AgentPreset(id: "deepseek", name: "DeepSeek / DeepSeek Harness",
-                    detail: "DeepSeek 网页版 / Harness 桌面应用", group: .china,
+                    detailZh: "DeepSeek 网页版 / Harness 桌面应用",
+                    detailEn: "DeepSeek on the web / Harness desktop app",
                     nativeBundleIDs: ["com.deepseek.dsh"], webHosts: ["chat.deepseek.com"]),
-        AgentPreset(id: "zcode", name: "ZCode（智谱）",
-                    detail: "ZCode 桌面应用可手动添加", group: .china,
+        AgentPreset(id: "zcode", name: "ZCode",
+                    detailZh: "智谱 ZCode 桌面应用可手动添加",
+                    detailEn: "Add the ZCode desktop app by Zhipu manually",
                     nativeBundleIDs: [], webHosts: []),
         AgentPreset(id: "kimi", name: "Kimi",
-                    detail: "Kimi 国内 / 国际网页版；桌面应用可手动添加", group: .china,
+                    detailZh: "Kimi 网页版；桌面应用可手动添加",
+                    detailEn: "Kimi on the web; add the desktop app manually",
                     nativeBundleIDs: [], webHosts: ["www.kimi.com", "www.kimi.ai"]),
         AgentPreset(id: "kimi-code", name: "Kimi Code",
-                    detail: "Kimi Code 桌面应用可手动添加，终端 CLI 需另行适配", group: .china,
+                    detailZh: "Kimi Code 桌面应用可手动添加，终端 CLI 需另行适配",
+                    detailEn: "Add the Kimi Code desktop app manually. Terminal CLI tools need separate support.",
                     nativeBundleIDs: [], webHosts: []),
         AgentPreset(id: "workbuddy", name: "WorkBuddy",
-                    detail: "腾讯 WorkBuddy 桌面应用", group: .china,
+                    detailZh: "腾讯 WorkBuddy 桌面应用",
+                    detailEn: "WorkBuddy desktop app by Tencent",
                     nativeBundleIDs: ["com.tencent.workbuddy.mac"], webHosts: []),
         AgentPreset(id: "qoder-cn", name: "Qoder CN",
-                    detail: "Qoder 国内版桌面应用；其他版本可手动添加", group: .china,
+                    detailZh: "Qoder 桌面应用；其他版本可手动添加",
+                    detailEn: "Qoder desktop app; add other editions manually",
                     nativeBundleIDs: ["com.qodercn.app"], webHosts: []),
         AgentPreset(id: "trae-cn", name: "TRAE CN",
-                    detail: "TRAE 国内版桌面应用；其他版本可手动添加", group: .china,
+                    detailZh: "TRAE 桌面应用；其他版本可手动添加",
+                    detailEn: "TRAE desktop app; add other editions manually",
                     nativeBundleIDs: ["cn.trae.app"], webHosts: [])
     ]
 }

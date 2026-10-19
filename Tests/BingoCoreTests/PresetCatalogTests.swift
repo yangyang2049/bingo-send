@@ -15,14 +15,21 @@ final class PresetCatalogTests: XCTestCase {
     func testPresetIdentityAndPerPresetTargetsAreUnique() {
         let presets = AgentCatalog.presets
         XCTAssertEqual(Set(presets.map(\.id)).count, presets.count)
-        XCTAssertEqual(Set(presets.map(\.group)), Set(AgentPresetGroup.allCases))
         for preset in presets {
             XCTAssertFalse(preset.id.isEmpty)
             XCTAssertFalse(preset.name.isEmpty)
-            XCTAssertFalse(preset.detail.isEmpty)
+            XCTAssertFalse(preset.detailZh.isEmpty, preset.id)
+            XCTAssertFalse(preset.detailEn.isEmpty, preset.id)
             XCTAssertEqual(Set(preset.nativeBundleIDs).count, preset.nativeBundleIDs.count, preset.id)
             XCTAssertEqual(Set(preset.webHosts).count, preset.webHosts.count, preset.id)
         }
+    }
+
+    func testPresetDisplayOrderIsStable() {
+        XCTAssertEqual(AgentCatalog.presets.map(\.id), [
+            "codex-chatgpt", "claude", "gemini", "grok", "cursor", "huggingchat",
+            "deepseek", "zcode", "kimi", "kimi-code", "workbuddy", "qoder-cn", "trae-cn"
+        ])
     }
 
     func testWebTargetsUseExplicitOfficialEditorHosts() {

@@ -36,15 +36,31 @@ struct FocusedDraft {
 }
 
 enum SendPhase: String {
-    case start = "开始"
-    case beforeRemoval = "移除口令前"
-    case beforeSend = "发送前"
+    case start
+    case beforeRemoval
+    case beforeSend
+
+    var title: String {
+        switch self {
+        case .start: return L10n.text(zh: "开始", en: "Start")
+        case .beforeRemoval: return L10n.text(zh: "移除口令前", en: "Before trigger removal")
+        case .beforeSend: return L10n.text(zh: "发送前", en: "Before sending")
+        }
+    }
 }
 
 enum RemovalTextState: String {
-    case original = "原文"
-    case expected = "目标正文"
-    case unchanged = "原文与目标相同"
+    case original
+    case expected
+    case unchanged
+
+    var title: String {
+        switch self {
+        case .original: return L10n.text(zh: "原文", en: "original")
+        case .expected: return L10n.text(zh: "目标正文", en: "expected body")
+        case .unchanged: return L10n.text(zh: "原文与目标相同", en: "original and expected are identical")
+        }
+    }
 }
 
 /// These diagnostics contain fixed labels, numeric ranges and AX error codes.
@@ -70,25 +86,30 @@ enum SendFailureReason {
 
     var message: String {
         switch self {
-        case .permission: return "辅助功能授权已失效"
-        case .foregroundApplication: return "前台应用已变化"
-        case .focus: return "输入框焦点已变化"
-        case .focusProcess: return "输入框所属进程已变化"
-        case .page: return "网页地址已变化或无法确认"
-        case .text: return "输入框正文已变化"
-        case .controlUnavailable: return "输入框已不可用"
-        case .unsupportedTextValue: return "AXValue 未返回纯文本"
-        case .invalidRangeValue: return "AXSelectedTextRange 未返回有效范围"
-        case .keyboardEventCreation: return "无法创建发送按键"
-        case .triggerNotMatched: return "句尾口令已无法确认"
-        case .triggerRemovalUnsupported: return "此输入框无法安全移除句尾口令，请关闭移除选项后重试"
-        case .selectedText: return "选中文字与句尾口令不一致"
+        case .permission: return L10n.text(zh: "辅助功能授权已失效", en: "Accessibility permission is no longer available")
+        case .foregroundApplication: return L10n.text(zh: "前台应用已变化", en: "The foreground app changed")
+        case .focus: return L10n.text(zh: "输入框焦点已变化", en: "The focused input changed")
+        case .focusProcess: return L10n.text(zh: "输入框所属进程已变化", en: "The input's process changed")
+        case .page: return L10n.text(zh: "网页地址已变化或无法确认", en: "The page URL changed or could not be verified")
+        case .text: return L10n.text(zh: "输入框正文已变化", en: "The draft text changed")
+        case .controlUnavailable: return L10n.text(zh: "输入框已不可用", en: "The input is no longer available")
+        case .unsupportedTextValue: return L10n.text(zh: "AXValue 未返回纯文本", en: "AXValue did not return plain text")
+        case .invalidRangeValue: return L10n.text(zh: "AXSelectedTextRange 未返回有效范围", en: "AXSelectedTextRange did not return a valid range")
+        case .keyboardEventCreation: return L10n.text(zh: "无法创建发送按键", en: "Could not create a keyboard event")
+        case .triggerNotMatched: return L10n.text(zh: "句尾口令已无法确认", en: "The final trigger could no longer be verified")
+        case .triggerRemovalUnsupported:
+            return L10n.text(zh: "此输入框无法安全移除句尾口令，请关闭移除选项后重试",
+                en: "This input cannot safely remove the final trigger; turn off trigger removal and try again")
+        case .selectedText: return L10n.text(zh: "选中文字与句尾口令不一致", en: "The selected text does not match the trigger suffix")
         case let .editTimeout(expected, actual, textState):
-            return "输入框修改确认超时（期望选区 \(expected.location):\(expected.length)，实际 \(actual.location):\(actual.length)，正文状态：\(textState.rawValue)）"
+            return L10n.text(
+                zh: "输入框修改确认超时（期望选区 \(expected.location):\(expected.length)，实际 \(actual.location):\(actual.length)，正文状态：\(textState.title)）",
+                en: "Timed out confirming the edit (expected selection \(expected.location):\(expected.length), actual \(actual.location):\(actual.length), text state: \(textState.title))")
         case let .cursor(expected, actual):
-            return "光标或选区已变化（期望 \(expected.location):\(expected.length)，实际 \(actual.location):\(actual.length)）"
-        case let .axRead(attribute, code): return "读取 \(attribute) 失败（AX \(code)）"
-        case let .axWrite(attribute, code): return "修改 \(attribute) 失败（AX \(code)）"
+            return L10n.text(zh: "光标或选区已变化（期望 \(expected.location):\(expected.length)，实际 \(actual.location):\(actual.length)）",
+                en: "The caret or selection changed (expected \(expected.location):\(expected.length), actual \(actual.location):\(actual.length))")
+        case let .axRead(attribute, code): return L10n.text(zh: "读取 \(attribute) 失败（AX \(code)）", en: "Could not read \(attribute) (AX \(code))")
+        case let .axWrite(attribute, code): return L10n.text(zh: "修改 \(attribute) 失败（AX \(code)）", en: "Could not modify \(attribute) (AX \(code))")
         }
     }
 }
@@ -111,21 +132,22 @@ enum AccessibilityFailure: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .permissionRequired: return "请在系统设置中允许 Bingo Send 使用辅助功能。"
-        case .noApplication: return "没有可用的前台应用。"
-        case .ownApplication: return "请切换到要输入消息的应用。"
-        case .noTextField: return "请先把光标放进消息输入框。"
-        case .unsupportedField: return "当前控件不是已允许的文本输入框。"
-        case .protectedField: return "密码或受保护的输入框不会被处理。"
-        case .disabledField: return "当前输入框不可用。"
-        case .readOnlyField: return "当前输入框为只读。"
-        case .textUnavailable: return "当前输入框没有公开可读取的文字。"
-        case .selectionUnavailable: return "当前输入框没有公开光标位置。"
-        case .cursorNotAtEnd: return "请把光标移到文字末尾，并取消文字选择。"
-        case .pageNotAllowed: return "当前网页不在允许的域名内，或无法确认网页地址。"
-        case let .sendFailure(phase, reason): return "\(phase.rawValue)：\(reason.message)，已停止发送。"
+        case .permissionRequired: return L10n.text(zh: "请在系统设置中允许 Bingo Send 使用辅助功能。", en: "Allow Bingo Send to use Accessibility in System Settings.")
+        case .noApplication: return L10n.text(zh: "没有可用的前台应用。", en: "No foreground app is available.")
+        case .ownApplication: return L10n.text(zh: "请切换到要输入消息的应用。", en: "Switch to the app where you want to enter a message.")
+        case .noTextField: return L10n.text(zh: "请先把光标放进消息输入框。", en: "Place the caret in the message input first.")
+        case .unsupportedField: return L10n.text(zh: "当前控件不是已允许的文本输入框。", en: "This control is not an allowed text input.")
+        case .protectedField: return L10n.text(zh: "密码或受保护的输入框不会被处理。", en: "Password and protected inputs are never processed.")
+        case .disabledField: return L10n.text(zh: "当前输入框不可用。", en: "This input is unavailable.")
+        case .readOnlyField: return L10n.text(zh: "当前输入框为只读。", en: "This input is read-only.")
+        case .textUnavailable: return L10n.text(zh: "当前输入框没有公开可读取的文字。", en: "This input does not expose readable text.")
+        case .selectionUnavailable: return L10n.text(zh: "当前输入框没有公开光标位置。", en: "This input does not expose the caret position.")
+        case .cursorNotAtEnd: return L10n.text(zh: "请把光标移到文字末尾，并取消文字选择。", en: "Move the caret to the end and clear the text selection.")
+        case .pageNotAllowed: return L10n.text(zh: "当前网页不在允许的域名内，或无法确认网页地址。", en: "This page is outside the allowed domains, or its URL could not be verified.")
+        case let .sendFailure(phase, reason): return L10n.text(zh: "\(phase.title)：\(reason.message)，已停止发送。", en: "\(phase.title): \(reason.message). Sending stopped.")
         case let .removalInterrupted(cause):
-            return "\(cause) 草稿或选区可能已被修改；未继续发送，请检查原输入框。"
+            return L10n.text(zh: "\(cause) 草稿或选区可能已被修改；未继续发送，请检查原输入框。",
+                en: "\(cause) The draft or selection may have changed. Sending stopped; check the original input.")
         }
     }
 }
@@ -235,7 +257,8 @@ final class AccessibilityClient {
             keyUp.postToPid(draft.processID)
         } catch {
             if mayHaveModifiedDraft {
-                let cause = error is CancellationError ? "移除口令操作已取消。" : error.localizedDescription
+                let cause = error is CancellationError
+                    ? L10n.text(zh: "移除口令操作已取消。", en: "Trigger removal was cancelled.") : error.localizedDescription
                 throw AccessibilityFailure.removalInterrupted(cause: cause)
             }
             throw error
