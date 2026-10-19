@@ -31,8 +31,9 @@ struct Preferences: Codable, Equatable {
     var keyword = "Bingo"
     var stabilityDelay = 1.0
     var detectOnly = true
+    var removeTriggerBeforeSend = false
     var rules: [ApplicationRule] = {
-        var rules = [ApplicationRule(name: "Codex / ChatGPT", bundleIdentifier: "com.openai.codex", shortcut: .returnKey)]
+        var rules = [ApplicationRule(name: "Codex / ChatGPT", bundleIdentifier: "com.openai.codex", enabled: false, shortcut: .returnKey)]
         let browsers = [("Safari", "com.apple.Safari"), ("Chrome", "com.google.Chrome"), ("Edge", "com.microsoft.edgemac")]
         for (name, bundleID) in browsers where NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) != nil {
             rules.append(ApplicationRule(name: name, bundleIdentifier: bundleID, enabled: false,
@@ -40,6 +41,28 @@ struct Preferences: Codable, Equatable {
         }
         return rules
     }()
+
+    init() {}
+
+    private enum CodingKeys: String, CodingKey {
+        case keyword, stabilityDelay, detectOnly, rules, removeTriggerBeforeSend
+    }
+
+    init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        keyword = try values.decode(String.self, forKey: .keyword)
+        stabilityDelay = try values.decode(Double.self, forKey: .stabilityDelay)
+        detectOnly = try values.decode(Bool.self, forKey: .detectOnly)
+        rules = try values.decode([ApplicationRule].self, forKey: .rules)
+        removeTriggerBeforeSend = try values.decodeIfPresent(Bool.self, forKey: .removeTriggerBeforeSend) ?? false
+    }
+}
+
+struct InstalledApplication: Identifiable {
+    let bundleIdentifier: String
+    let name: String
+    let url: URL
+    var id: String { bundleIdentifier }
 }
 
 @MainActor
@@ -56,6 +79,7 @@ final class AppModel: ObservableObject {
     @Published var isEnabled = false {
         didSet {
             if !isEnabled { sendingTask?.cancel(); status = "已暂停" }
+            if isEnabled { sendFailureMessage = nil }
             engine.reset()
         }
     }
@@ -64,6 +88,7 @@ final class AppModel: ObservableObject {
     @Published private(set) var lastEvent = "还没有检测记录"
     @Published private(set) var activeApp = ""
     @Published private(set) var isSending = false
+    @Published private(set) var sendFailureMessage: String?
     @Published var editorRule: ApplicationRule?
     @Published var notice: String?
 
@@ -74,9 +99,7 @@ final class AppModel: ObservableObject {
     private var lastObservedAt: TimeInterval = 0
 
     var keywordIsValid: Bool {
-        let word = preferences.keyword.trimmingCharacters(in: .whitespacesAndNewlines)
-        return !word.isEmpty && word.count <= 40 && !word.contains("\n") &&
-            word.unicodeScalars.contains { CharacterSet.alphanumerics.contains($0) }
+        TriggerMatcher.isValidKeyword(preferences.keyword)
     }
 
     init() {
@@ -109,13 +132,48 @@ final class AppModel: ObservableObject {
         picker.directoryURL = URL(fileURLWithPath: "/Applications", isDirectory: true)
         guard picker.runModal() == .OK, let url = picker.url,
               let bundle = Bundle(url: url), let bundleID = bundle.bundleIdentifier else { return }
-        if let existing = preferences.rules.first(where: { $0.bundleIdentifier == bundleID }) {
-            editorRule = existing
-        } else {
-            let name = FileManager.default.displayName(atPath: url.path).replacingOccurrences(of: ".app", with: "")
-            editorRule = ApplicationRule(name: name, bundleIdentifier: bundleID,
+        let name = FileManager.default.displayName(atPath: url.path).replacingOccurrences(of: ".app", with: "")
+        let rule = preferences.rules.first(where: { $0.bundleIdentifier == bundleID })
+            ?? ApplicationRule(name: name, bundleIdentifier: bundleID,
                 restrictToWeb: ApplicationRule.browserIDs.contains(bundleID))
-        }
+        // Present the SwiftUI editor after the native file picker has finished
+        // leaving its modal session.
+        DispatchQueue.main.async { [weak self] in self?.editorRule = rule }
+    }
+
+    private func installedApplication(bundleID: String) -> InstalledApplication? {
+        guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID),
+              let bundle = Bundle(url: url), bundle.bundleIdentifier == bundleID else { return nil }
+        let name = FileManager.default.displayName(atPath: url.path).replacingOccurrences(of: ".app", with: "")
+        return InstalledApplication(bundleIdentifier: bundleID, name: name, url: url)
+    }
+
+    func installedApplications(for preset: AgentPreset) -> [InstalledApplication] {
+        preset.nativeBundleIDs.compactMap { installedApplication(bundleID: $0) }
+    }
+
+    var installedBrowsers: [InstalledApplication] {
+        ApplicationRule.browserIDs.sorted().compactMap { installedApplication(bundleID: $0) }
+            .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
+    }
+
+    func configureNativePreset(_ preset: AgentPreset, application: InstalledApplication) {
+        var rule = preferences.rules.first { $0.bundleIdentifier == application.bundleIdentifier }
+            ?? ApplicationRule(name: preset.name, bundleIdentifier: application.bundleIdentifier)
+        rule.enabled = true
+        editorRule = rule
+    }
+
+    func addWebPreset(_ preset: AgentPreset, browser: InstalledApplication, shortcut: SendShortcut) {
+        guard !preset.webHosts.isEmpty,
+              ApplicationRule.browserIDs.contains(browser.bundleIdentifier) else { return }
+        var rule = preferences.rules.first { $0.bundleIdentifier == browser.bundleIdentifier }
+            ?? ApplicationRule(name: browser.name, bundleIdentifier: browser.bundleIdentifier)
+        rule.domainText = PresetDomains.merging(existing: rule.domainText, hosts: preset.webHosts)
+        rule.restrictToWeb = true
+        rule.enabled = true
+        rule.shortcut = shortcut
+        save(rule)
     }
 
     func save(_ rule: ApplicationRule) {
@@ -149,7 +207,8 @@ final class AppModel: ObservableObject {
         }
         do {
             let hosts = rule.needsDomainCheck ? rule.hosts : nil
-            let draft = try client.focusedDraft(allowSingleLine: rule.allowSingleLine, allowedPageHosts: hosts)
+            let draft = try client.focusedDraft(expectedBundleIdentifier: rule.bundleIdentifier,
+                expectedProcessID: app.processID, allowSingleLine: rule.allowSingleLine, allowedPageHosts: hosts)
             guard draft.bundleIdentifier == rule.bundleIdentifier else { engine.reset(); return }
             let observationTime = ProcessInfo.processInfo.systemUptime
             if observationTime - lastObservedAt > 180 { engine.reset() }
@@ -165,20 +224,24 @@ final class AppModel: ObservableObject {
                 return
             }
             isSending = true
-            status = "正在发送完整正文…"
-            lastEvent = "\(timeLabel()) · \(rule.name)：已识别口令，正在原样发送"
+            let removalKeyword = preferences.removeTriggerBeforeSend ? preferences.keyword : nil
+            status = removalKeyword == nil ? "正在发送完整正文…" : "正在移除句尾口令并核验…"
+            lastEvent = "\(timeLabel()) · \(rule.name)：已识别口令，正在\(removalKeyword == nil ? "原样发送" : "处理句尾口令")"
             sendingTask = Task { @MainActor [weak self] in
                 guard let self else { return }
                 defer { self.isSending = false; self.engine.reset(); self.sendingTask = nil }
                 do {
                     try Task.checkCancellation()
-                    try await self.client.sendDraft(draft, shortcut: rule.shortcut, allowedPageHosts: hosts)
+                    try await self.client.sendDraft(draft, shortcut: rule.shortcut,
+                        allowedPageHosts: hosts, removeKeyword: removalKeyword)
                     self.lastEvent = "\(self.timeLabel()) · 已向 \(rule.name) 发出发送按键；请在目标应用确认"
                     self.status = "已发出发送按键"
                 } catch is CancellationError {
-                    self.status = "已取消发送，请检查原输入框"
+                    self.lastEvent = "\(self.timeLabel()) · 已取消发送，请检查输入框\(removalKeyword == nil ? "" : "；草稿或选区可能已变化")"
+                    self.status = "已取消发送，请检查输入框"
                 } catch {
                     self.isEnabled = false
+                    self.sendFailureMessage = error.localizedDescription
                     self.lastEvent = "\(self.timeLabel()) · 已暂停：\(error.localizedDescription)"
                     self.status = "发送已中止，请检查原输入框"
                 }

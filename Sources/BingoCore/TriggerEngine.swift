@@ -10,6 +10,16 @@ public struct TriggerMatch: Equatable {
 }
 
 public enum TriggerMatcher {
+    public static func isValidKeyword(_ rawKeyword: String) -> Bool {
+        let keyword = rawKeyword.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !keyword.isEmpty, keyword.count <= 40,
+              keyword.rangeOfCharacter(from: .newlines) == nil,
+              keyword.unicodeScalars.contains(where: CharacterSet.alphanumerics.contains),
+              let last = keyword.last else { return false }
+        // Trailing punctuation is treated as dictation punctuation by match().
+        return !isTrailingDelimiter(last)
+    }
+
     /// Matches a final spoken keyword, including punctuation inserted by dictation.
     public static func match(text: String, keyword: String) -> TriggerMatch? {
         let keyword = keyword.trimmingCharacters(in: .whitespacesAndNewlines)

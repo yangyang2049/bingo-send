@@ -30,6 +30,12 @@ if [[ ! -d "$APP_DIR" || "$APP_DIR" != *.app ]]; then
 fi
 APP_DIR="$(cd -- "$APP_DIR" && pwd)"
 APP_NAME="$(basename -- "$APP_DIR")"
+# The UI fixture is local test infrastructure and must never ship in a release.
+FIXTURE_ENTRY="$(find "$APP_DIR" \( -iname '*bingofixture*' -o -iname '*bingo fixture*' \) -print -quit)"
+if [[ -n "$FIXTURE_ENTRY" ]]; then
+    printf 'Refusing to package local-only Bingo Fixture content: %s\n' "$FIXTURE_ENTRY" >&2
+    exit 1
+fi
 PLIST="$APP_DIR/Contents/Info.plist"
 VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$PLIST")"
 EXECUTABLE="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$PLIST")"
@@ -61,6 +67,6 @@ mv -f "$STAGING_DIR/$PACKAGE_NAME.dmg" "$DIST_DIR/"
 
 (
     cd "$DIST_DIR"
-    shasum -a 256 -- *.zip *.dmg > SHA256SUMS.txt
+    shasum -a 256 -- "$PACKAGE_NAME.zip" "$PACKAGE_NAME.dmg" > SHA256SUMS.txt
 )
 printf 'Packaged: %s\n' "$DIST_DIR/$PACKAGE_NAME.zip" "$DIST_DIR/$PACKAGE_NAME.dmg" "$DIST_DIR/SHA256SUMS.txt"

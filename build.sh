@@ -59,8 +59,15 @@ fi
 if [[ -f "$PROJECT_DIR/docs/PRIVACY.zh-CN.md" ]]; then
     cp "$PROJECT_DIR/docs/PRIVACY.zh-CN.md" "$APP_DIR/Contents/Resources/Privacy.zh-CN.md"
 fi
-swift "$PROJECT_DIR/scripts/make-icon.swift" "$PROJECT_DIR/build/AppIcon.iconset"
-iconutil --convert icns "$PROJECT_DIR/build/AppIcon.iconset" --output "$APP_DIR/Contents/Resources/AppIcon.icns"
+ICONSET_DIR="$PROJECT_DIR/build/AppIcon.iconset"
+ICON_CHECK_DIR="$PROJECT_DIR/build/AppIcon-verified.iconset"
+rm -rf "$ICONSET_DIR" "$ICON_CHECK_DIR"
+swift "$PROJECT_DIR/scripts/make-icon.swift" "$ICONSET_DIR"
+iconutil --convert icns "$ICONSET_DIR" --output "$APP_DIR/Contents/Resources/AppIcon.icns"
+# Confirm iconutil retained every correctly sized representation before signing.
+iconutil --convert iconset "$APP_DIR/Contents/Resources/AppIcon.icns" --output "$ICON_CHECK_DIR"
+swift "$PROJECT_DIR/scripts/make-icon.swift" --validate "$ICON_CHECK_DIR"
+rm -rf "$ICON_CHECK_DIR"
 APP_IDENTIFIER="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP_DIR/Contents/Info.plist")"
 if [[ -n "${BINGO_SIGN_IDENTITY:-}" ]]; then
     codesign --force --sign "$BINGO_SIGN_IDENTITY" --identifier "$APP_IDENTIFIER" --options runtime --timestamp "$APP_DIR"

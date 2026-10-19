@@ -17,7 +17,7 @@ If you change packaging scripts, also run `./scripts/package-release.sh` and ins
 
 - Process only apps explicitly enabled by the user. When domain restrictions are enabled, validate the page before reading the draft.
 - Default to detection-only mode and start paused on every launch. Check focus, the full draft, caret, and selection before sending.
-- Preserve the full draft and final keyword. Do not change selections, delete words, or use the clipboard.
+- Default keep mode preserves the full draft, keyword, and selection. Optional removal may edit only the verified final keyword suffix; recheck focus, text, and selection before every edit and before sending. Never use the clipboard or overwrite the entire draft. If interrupted, stop and ask the user to inspect the draft; do not roll back over newer input.
 - Do not log drafts, page URLs, or window titles. Do not add telemetry or upload input content.
 - Stop when editor state or context cannot be read or confirmed. Do not loosen checks to work around a failure.
 
