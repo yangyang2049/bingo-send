@@ -3,13 +3,21 @@ import Foundation
 public struct TriggerMatch: Equatable {
     /// The keyword's UTF-16 range in the unchanged original draft.
     public let keywordRange: NSRange
+    /// The configured keyword that matched, exactly as the user wrote it, so
+    /// removal mode deletes only that suffix.
+    public let keyword: String
 
-    public init(keywordRange: NSRange) {
+    public init(keywordRange: NSRange, keyword: String) {
         self.keywordRange = keywordRange
+        self.keyword = keyword
     }
 }
 
 public enum TriggerMatcher {
+    /// A user may configure up to three final keywords at once; any one of
+    /// them ends the message.
+    public static let maximumKeywordCount = 3
+
     public static func isValidKeyword(_ rawKeyword: String) -> Bool {
         let keyword = rawKeyword.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !keyword.isEmpty, keyword.count <= 40,
@@ -18,6 +26,46 @@ public enum TriggerMatcher {
               let last = keyword.last else { return false }
         // Trailing punctuation is treated as dictation punctuation by match().
         return !isTrailingDelimiter(last)
+    }
+
+    /// True when the list holds one to three keywords and every non-empty entry
+    /// is a usable keyword. Empty entries are unfinished input, not errors.
+    public static func isValidKeywordList(_ rawKeywords: [String]) -> Bool {
+        let filled = rawKeywords
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        guard (1...maximumKeywordCount).contains(filled.count) else { return false }
+        return filled.allSatisfy(isValidKeyword)
+    }
+
+    /// Drops empty and invalid entries, removes case-insensitive duplicates, and
+    /// keeps the configured order up to `maximumKeywordCount` keywords.
+    public static func normalizedKeywords(_ rawKeywords: [String]) -> [String] {
+        var seen = Set<String>()
+        var keywords: [String] = []
+        for rawKeyword in rawKeywords {
+            let keyword = rawKeyword.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard isValidKeyword(keyword),
+                  seen.insert(keyword.lowercased()).inserted else { continue }
+            keywords.append(keyword)
+            if keywords.count == maximumKeywordCount { break }
+        }
+        return keywords
+    }
+
+    /// Matches the final keyword against a user keyword list. When more than one
+    /// keyword matches, the longest wins, so "Bingo Send" beats "Send" and the
+    /// removal never leaves half a keyword behind.
+    public static func match(text: String, keywords: [String]) -> TriggerMatch? {
+        var best: TriggerMatch?
+        for keyword in normalizedKeywords(keywords) {
+            guard let candidate = match(text: text, keyword: keyword) else { continue }
+            if let current = best, current.keywordRange.location <= candidate.keywordRange.location {
+                continue
+            }
+            best = candidate
+        }
+        return best
     }
 
     /// Matches a final spoken keyword, including punctuation inserted by dictation.
@@ -55,7 +103,7 @@ public enum TriggerMatcher {
                 && !CharacterSet.punctuationCharacters.contains($0)
         }) else { return nil }
 
-        return TriggerMatch(keywordRange: NSRange(keywordRange, in: text))
+        return TriggerMatch(keywordRange: NSRange(keywordRange, in: text), keyword: keyword)
     }
 
     private static func isEnglishWordScalar(_ scalar: Unicode.Scalar) -> Bool {
@@ -105,7 +153,7 @@ public struct TriggerEngine {
     private struct Candidate {
         let snapshot: DraftSnapshot
         let match: TriggerMatch
-        let keyword: String
+        let keywords: [String]
         let changedAt: TimeInterval
     }
 
@@ -129,9 +177,10 @@ public struct TriggerEngine {
     public mutating func observe(
         _ snapshot: DraftSnapshot,
         now: TimeInterval,
-        keyword: String,
+        keywords: [String],
         delay: TimeInterval
     ) -> TriggerAction? {
+        let keywords = TriggerMatcher.normalizedKeywords(keywords)
         guard let previous = previousSnapshot,
               previous.targetID == snapshot.targetID else {
             // Existing text when focus enters a field is a baseline, even when
@@ -153,17 +202,17 @@ public struct TriggerEngine {
         }
 
         if textChanged,
-           let match = TriggerMatcher.match(text: snapshot.text, keyword: keyword) {
+           let match = TriggerMatcher.match(text: snapshot.text, keywords: keywords) {
             candidate = Candidate(
                 snapshot: snapshot,
                 match: match,
-                keyword: keyword,
+                keywords: keywords,
                 changedAt: now
             )
         }
 
         guard let pending = candidate else { return nil }
-        guard pending.keyword == keyword,
+        guard pending.keywords == keywords,
               pending.snapshot == snapshot,
               now >= pending.changedAt else {
             candidate = nil

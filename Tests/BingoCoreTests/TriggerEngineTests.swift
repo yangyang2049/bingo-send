@@ -64,100 +64,100 @@ final class TriggerEngineTests: XCTestCase {
     func testInitialSnapshotIsBaselineEvenIfItContainsKeyword() {
         var engine = TriggerEngine()
         let existing = draft("已有草稿 Bingo")
-        XCTAssertNil(engine.observe(existing, now: 0, keyword: "Bingo", delay: 0.8))
-        XCTAssertNil(engine.observe(existing, now: 10, keyword: "Bingo", delay: 0.8))
+        XCTAssertNil(engine.observe(existing, now: 0, keywords: ["Bingo"], delay: 0.8))
+        XCTAssertNil(engine.observe(existing, now: 10, keywords: ["Bingo"], delay: 0.8))
     }
 
     func testWholeDictationCommitWaitsForStableTextAndEmitsOnce() throws {
         var engine = TriggerEngine()
-        XCTAssertNil(engine.observe(draft(""), now: 0, keyword: "Bingo", delay: 0.8))
+        XCTAssertNil(engine.observe(draft(""), now: 0, keywords: ["Bingo"], delay: 0.8))
         let spoken = draft("帮我检查页面，Bingo。")
-        XCTAssertNil(engine.observe(spoken, now: 1, keyword: "Bingo", delay: 0.8))
-        XCTAssertNil(engine.observe(spoken, now: 1.5, keyword: "Bingo", delay: 0.8))
-        let action = try XCTUnwrap(engine.observe(spoken, now: 2, keyword: "Bingo", delay: 0.8))
+        XCTAssertNil(engine.observe(spoken, now: 1, keywords: ["Bingo"], delay: 0.8))
+        XCTAssertNil(engine.observe(spoken, now: 1.5, keywords: ["Bingo"], delay: 0.8))
+        let action = try XCTUnwrap(engine.observe(spoken, now: 2, keywords: ["Bingo"], delay: 0.8))
         XCTAssertEqual(action.snapshot, spoken)
         XCTAssertEqual(action.snapshot.text, "帮我检查页面，Bingo。")
         XCTAssertEqual((action.snapshot.text as NSString).substring(with: action.match.keywordRange), "Bingo")
-        XCTAssertNil(engine.observe(spoken, now: 3, keyword: "Bingo", delay: 0.8))
-        XCTAssertNil(engine.observe(spoken, now: 30, keyword: "Bingo", delay: 0.8))
+        XCTAssertNil(engine.observe(spoken, now: 3, keywords: ["Bingo"], delay: 0.8))
+        XCTAssertNil(engine.observe(spoken, now: 30, keywords: ["Bingo"], delay: 0.8))
     }
 
     func testIncrementalCommitAndPunctuationResetStabilityTimer() {
         var engine = TriggerEngine()
-        _ = engine.observe(draft(""), now: 0, keyword: "Bingo", delay: 1)
-        _ = engine.observe(draft("请检查"), now: 1, keyword: "Bingo", delay: 1)
-        _ = engine.observe(draft("请检查 Bi"), now: 2, keyword: "Bingo", delay: 1)
-        _ = engine.observe(draft("请检查 Bingo"), now: 3, keyword: "Bingo", delay: 1)
-        _ = engine.observe(draft("请检查 Bingo。"), now: 3.5, keyword: "Bingo", delay: 1)
-        XCTAssertNil(engine.observe(draft("请检查 Bingo。"), now: 4, keyword: "Bingo", delay: 1))
-        XCTAssertNotNil(engine.observe(draft("请检查 Bingo。"), now: 4.6, keyword: "Bingo", delay: 1))
+        _ = engine.observe(draft(""), now: 0, keywords: ["Bingo"], delay: 1)
+        _ = engine.observe(draft("请检查"), now: 1, keywords: ["Bingo"], delay: 1)
+        _ = engine.observe(draft("请检查 Bi"), now: 2, keywords: ["Bingo"], delay: 1)
+        _ = engine.observe(draft("请检查 Bingo"), now: 3, keywords: ["Bingo"], delay: 1)
+        _ = engine.observe(draft("请检查 Bingo。"), now: 3.5, keywords: ["Bingo"], delay: 1)
+        XCTAssertNil(engine.observe(draft("请检查 Bingo。"), now: 4, keywords: ["Bingo"], delay: 1))
+        XCTAssertNotNil(engine.observe(draft("请检查 Bingo。"), now: 4.6, keywords: ["Bingo"], delay: 1))
     }
 
     func testTypingAfterKeywordCancelsCandidate() {
         var engine = TriggerEngine()
-        _ = engine.observe(draft(""), now: 0, keyword: "Bingo", delay: 1)
-        _ = engine.observe(draft("请检查 Bingo"), now: 1, keyword: "Bingo", delay: 1)
+        _ = engine.observe(draft(""), now: 0, keywords: ["Bingo"], delay: 1)
+        _ = engine.observe(draft("请检查 Bingo"), now: 1, keywords: ["Bingo"], delay: 1)
         let continued = draft("请检查 Bingo 的含义")
-        _ = engine.observe(continued, now: 1.2, keyword: "Bingo", delay: 1)
-        XCTAssertNil(engine.observe(continued, now: 5, keyword: "Bingo", delay: 1))
+        _ = engine.observe(continued, now: 1.2, keywords: ["Bingo"], delay: 1)
+        XCTAssertNil(engine.observe(continued, now: 5, keywords: ["Bingo"], delay: 1))
     }
 
     func testSwitchingFieldsCancelsPendingAndBaselinesNewField() {
         var engine = TriggerEngine()
-        _ = engine.observe(draft(""), now: 0, keyword: "Bingo", delay: 1)
-        _ = engine.observe(draft("正文 Bingo"), now: 1, keyword: "Bingo", delay: 1)
+        _ = engine.observe(draft(""), now: 0, keywords: ["Bingo"], delay: 1)
+        _ = engine.observe(draft("正文 Bingo"), now: 1, keywords: ["Bingo"], delay: 1)
         let newField = draft("另一个已有草稿 Bingo", target: "field-b")
-        XCTAssertNil(engine.observe(newField, now: 2, keyword: "Bingo", delay: 1))
-        XCTAssertNil(engine.observe(newField, now: 5, keyword: "Bingo", delay: 1))
+        XCTAssertNil(engine.observe(newField, now: 2, keywords: ["Bingo"], delay: 1))
+        XCTAssertNil(engine.observe(newField, now: 5, keywords: ["Bingo"], delay: 1))
     }
 
     func testLeavingCaretEndCancelsUntilNextTextEdit() {
         var engine = TriggerEngine()
-        _ = engine.observe(draft(""), now: 0, keyword: "Bingo", delay: 1)
-        _ = engine.observe(draft("正文 Bingo"), now: 1, keyword: "Bingo", delay: 1)
-        XCTAssertNil(engine.observe(draft("正文 Bingo", atEnd: false), now: 1.5, keyword: "Bingo", delay: 1))
-        XCTAssertNil(engine.observe(draft("正文 Bingo"), now: 4, keyword: "Bingo", delay: 1))
-        XCTAssertNil(engine.observe(draft("新正文 Bingo"), now: 5, keyword: "Bingo", delay: 1))
-        XCTAssertNotNil(engine.observe(draft("新正文 Bingo"), now: 7, keyword: "Bingo", delay: 1))
+        _ = engine.observe(draft(""), now: 0, keywords: ["Bingo"], delay: 1)
+        _ = engine.observe(draft("正文 Bingo"), now: 1, keywords: ["Bingo"], delay: 1)
+        XCTAssertNil(engine.observe(draft("正文 Bingo", atEnd: false), now: 1.5, keywords: ["Bingo"], delay: 1))
+        XCTAssertNil(engine.observe(draft("正文 Bingo"), now: 4, keywords: ["Bingo"], delay: 1))
+        XCTAssertNil(engine.observe(draft("新正文 Bingo"), now: 5, keywords: ["Bingo"], delay: 1))
+        XCTAssertNotNil(engine.observe(draft("新正文 Bingo"), now: 7, keywords: ["Bingo"], delay: 1))
     }
 
     func testARealTextEditCanArmAnotherSend() {
         var engine = TriggerEngine()
-        _ = engine.observe(draft(""), now: 0, keyword: "Bingo", delay: 1)
-        _ = engine.observe(draft("第一条 Bingo"), now: 1, keyword: "Bingo", delay: 1)
-        XCTAssertNotNil(engine.observe(draft("第一条 Bingo"), now: 2, keyword: "Bingo", delay: 1))
-        _ = engine.observe(draft(""), now: 3, keyword: "Bingo", delay: 1)
-        _ = engine.observe(draft("第二条 Bingo"), now: 4, keyword: "Bingo", delay: 1)
-        XCTAssertNotNil(engine.observe(draft("第二条 Bingo"), now: 5, keyword: "Bingo", delay: 1))
+        _ = engine.observe(draft(""), now: 0, keywords: ["Bingo"], delay: 1)
+        _ = engine.observe(draft("第一条 Bingo"), now: 1, keywords: ["Bingo"], delay: 1)
+        XCTAssertNotNil(engine.observe(draft("第一条 Bingo"), now: 2, keywords: ["Bingo"], delay: 1))
+        _ = engine.observe(draft(""), now: 3, keywords: ["Bingo"], delay: 1)
+        _ = engine.observe(draft("第二条 Bingo"), now: 4, keywords: ["Bingo"], delay: 1)
+        XCTAssertNotNil(engine.observe(draft("第二条 Bingo"), now: 5, keywords: ["Bingo"], delay: 1))
     }
 
     func testResetBaselinesFocusReturn() {
         var engine = TriggerEngine()
-        _ = engine.observe(draft(""), now: 0, keyword: "Bingo", delay: 1)
-        _ = engine.observe(draft("正文 Bingo"), now: 1, keyword: "Bingo", delay: 1)
+        _ = engine.observe(draft(""), now: 0, keywords: ["Bingo"], delay: 1)
+        _ = engine.observe(draft("正文 Bingo"), now: 1, keywords: ["Bingo"], delay: 1)
         engine.reset()
-        XCTAssertNil(engine.observe(draft("正文 Bingo"), now: 10, keyword: "Bingo", delay: 1))
-        XCTAssertNil(engine.observe(draft("正文 Bingo"), now: 20, keyword: "Bingo", delay: 1))
+        XCTAssertNil(engine.observe(draft("正文 Bingo"), now: 10, keywords: ["Bingo"], delay: 1))
+        XCTAssertNil(engine.observe(draft("正文 Bingo"), now: 20, keywords: ["Bingo"], delay: 1))
     }
 
     func testSuspendRetainsBaselineForAWholeDictationCommitOnReturn() throws {
         var engine = TriggerEngine()
-        _ = engine.observe(draft(""), now: 0, keyword: "Bingo", delay: 1)
+        _ = engine.observe(draft(""), now: 0, keywords: ["Bingo"], delay: 1)
         engine.suspend()
         let committed = draft("浮层结束后上屏的正文，Bingo。")
-        XCTAssertNil(engine.observe(committed, now: 10, keyword: "Bingo", delay: 1))
-        XCTAssertNil(engine.observe(committed, now: 10.5, keyword: "Bingo", delay: 1))
-        let action = try XCTUnwrap(engine.observe(committed, now: 11, keyword: "Bingo", delay: 1))
+        XCTAssertNil(engine.observe(committed, now: 10, keywords: ["Bingo"], delay: 1))
+        XCTAssertNil(engine.observe(committed, now: 10.5, keywords: ["Bingo"], delay: 1))
+        let action = try XCTUnwrap(engine.observe(committed, now: 11, keywords: ["Bingo"], delay: 1))
         XCTAssertEqual(action.snapshot.text, "浮层结束后上屏的正文，Bingo。")
         XCTAssertEqual((action.snapshot.text as NSString).substring(with: action.match.keywordRange), "Bingo")
     }
 
     func testSendActionPreservesCompleteOriginalDraftIncludingKeywordAndFormatting() throws {
         var engine = TriggerEngine()
-        _ = engine.observe(draft(""), now: 0, keyword: "Bingo", delay: 1)
+        _ = engine.observe(draft(""), now: 0, keywords: ["Bingo"], delay: 1)
         let original = "请检查 👨‍👩‍👧‍👦 的页面。\n保留这行格式， bInGo！  \n"
-        _ = engine.observe(draft(original), now: 1, keyword: "Bingo", delay: 1)
-        let action = try XCTUnwrap(engine.observe(draft(original), now: 2, keyword: "Bingo", delay: 1))
+        _ = engine.observe(draft(original), now: 1, keywords: ["Bingo"], delay: 1)
+        let action = try XCTUnwrap(engine.observe(draft(original), now: 2, keywords: ["Bingo"], delay: 1))
         XCTAssertEqual(action.snapshot.text, original)
         XCTAssertEqual((action.snapshot.text as NSString).substring(with: action.match.keywordRange), "bInGo")
     }
@@ -165,39 +165,39 @@ final class TriggerEngineTests: XCTestCase {
     func testSuspendReturningToUnchangedBaselineDoesNotSend() {
         var engine = TriggerEngine()
         let existing = draft("原先已有的草稿 Bingo")
-        _ = engine.observe(existing, now: 0, keyword: "Bingo", delay: 1)
+        _ = engine.observe(existing, now: 0, keywords: ["Bingo"], delay: 1)
         engine.suspend()
-        XCTAssertNil(engine.observe(existing, now: 10, keyword: "Bingo", delay: 1))
-        XCTAssertNil(engine.observe(existing, now: 20, keyword: "Bingo", delay: 1))
+        XCTAssertNil(engine.observe(existing, now: 10, keywords: ["Bingo"], delay: 1))
+        XCTAssertNil(engine.observe(existing, now: 20, keywords: ["Bingo"], delay: 1))
         // A different field continues to establish its own baseline.
         let other = draft("另一个字段的新正文 Bingo", target: "field-b")
-        XCTAssertNil(engine.observe(other, now: 21, keyword: "Bingo", delay: 1))
-        XCTAssertNil(engine.observe(other, now: 30, keyword: "Bingo", delay: 1))
+        XCTAssertNil(engine.observe(other, now: 21, keywords: ["Bingo"], delay: 1))
+        XCTAssertNil(engine.observe(other, now: 30, keywords: ["Bingo"], delay: 1))
     }
 
     func testSuspendCancelsExistingCandidateEvenAfterReturningToSameText() {
         var engine = TriggerEngine()
-        _ = engine.observe(draft(""), now: 0, keyword: "Bingo", delay: 1)
+        _ = engine.observe(draft(""), now: 0, keywords: ["Bingo"], delay: 1)
         let pending = draft("待发正文 Bingo")
-        _ = engine.observe(pending, now: 1, keyword: "Bingo", delay: 1)
+        _ = engine.observe(pending, now: 1, keywords: ["Bingo"], delay: 1)
         engine.suspend()
-        XCTAssertNil(engine.observe(pending, now: 5, keyword: "Bingo", delay: 1))
-        XCTAssertNil(engine.observe(pending, now: 20, keyword: "Bingo", delay: 1))
+        XCTAssertNil(engine.observe(pending, now: 5, keywords: ["Bingo"], delay: 1))
+        XCTAssertNil(engine.observe(pending, now: 20, keywords: ["Bingo"], delay: 1))
     }
 
     func testChangedKeywordCancelsPendingCandidate() {
         var engine = TriggerEngine()
-        _ = engine.observe(draft(""), now: 0, keyword: "Bingo", delay: 1)
-        _ = engine.observe(draft("正文 Bingo"), now: 1, keyword: "Bingo", delay: 1)
-        XCTAssertNil(engine.observe(draft("正文 Bingo"), now: 3, keyword: "确定", delay: 1))
-        XCTAssertNil(engine.observe(draft("正文 Bingo"), now: 4, keyword: "Bingo", delay: 1))
+        _ = engine.observe(draft(""), now: 0, keywords: ["Bingo"], delay: 1)
+        _ = engine.observe(draft("正文 Bingo"), now: 1, keywords: ["Bingo"], delay: 1)
+        XCTAssertNil(engine.observe(draft("正文 Bingo"), now: 3, keywords: ["确定"], delay: 1))
+        XCTAssertNil(engine.observe(draft("正文 Bingo"), now: 4, keywords: ["Bingo"], delay: 1))
     }
 
     func testClockMovingBackwardCancelsPendingCandidate() {
         var engine = TriggerEngine()
-        _ = engine.observe(draft(""), now: 9, keyword: "Bingo", delay: 1)
-        _ = engine.observe(draft("正文 Bingo"), now: 10, keyword: "Bingo", delay: 1)
-        XCTAssertNil(engine.observe(draft("正文 Bingo"), now: 8, keyword: "Bingo", delay: 1))
-        XCTAssertNil(engine.observe(draft("正文 Bingo"), now: 20, keyword: "Bingo", delay: 1))
+        _ = engine.observe(draft(""), now: 9, keywords: ["Bingo"], delay: 1)
+        _ = engine.observe(draft("正文 Bingo"), now: 10, keywords: ["Bingo"], delay: 1)
+        XCTAssertNil(engine.observe(draft("正文 Bingo"), now: 8, keywords: ["Bingo"], delay: 1))
+        XCTAssertNil(engine.observe(draft("正文 Bingo"), now: 20, keywords: ["Bingo"], delay: 1))
     }
 }

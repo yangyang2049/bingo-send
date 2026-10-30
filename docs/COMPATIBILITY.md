@@ -1,5 +1,7 @@
 English | [简体中文](COMPATIBILITY.zh-CN.md)
 
+> **1.3.1 UI update:** the two switches described in older instructions below are now one run-mode selector. Choose **Test detection** for a sound without editing or sending, **Auto send** to post the shortcut, or **Paused** to stop reading. Removal is inactive while testing; every launch starts paused. Enter new text after changing mode or settings. Older switch instructions are historical references. [Changes and test checklist](RELEASE_NOTES_1.3.1.md).
+
 # Compatibility Record
 
 Recorded on 2026-10-19. The project’s minimum deployment target is macOS 13. Success on one version does not establish compatibility with every OS version, similarly named product, or input field.

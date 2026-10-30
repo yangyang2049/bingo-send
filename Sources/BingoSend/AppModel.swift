@@ -28,7 +28,8 @@ struct ApplicationRule: Codable, Identifiable, Equatable {
 }
 
 struct Preferences: Codable, Equatable {
-    var keyword = "Bingo"
+    /// Up to three final keywords. Any one of them ends a message.
+    var keywords = L10n.defaultKeywords()
     var stabilityDelay = 1.0
     var detectOnly = true
     var removeTriggerBeforeSend = false
@@ -45,16 +46,34 @@ struct Preferences: Codable, Equatable {
     init() {}
 
     private enum CodingKeys: String, CodingKey {
-        case keyword, stabilityDelay, detectOnly, rules, removeTriggerBeforeSend
+        case keyword, keywords, stabilityDelay, detectOnly, rules, removeTriggerBeforeSend
     }
 
     init(from decoder: Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
-        keyword = try values.decode(String.self, forKey: .keyword)
+        // Saved preferences from 1.2.0 and earlier hold one `keyword`. Keep that
+        // keyword and let the user add more; never invent extra triggers.
+        if let saved = try values.decodeIfPresent([String].self, forKey: .keywords) {
+            keywords = saved
+        } else {
+            keywords = [try values.decode(String.self, forKey: .keyword)]
+        }
         stabilityDelay = try values.decode(Double.self, forKey: .stabilityDelay)
         detectOnly = try values.decode(Bool.self, forKey: .detectOnly)
         rules = try values.decode([ApplicationRule].self, forKey: .rules)
         removeTriggerBeforeSend = try values.decodeIfPresent(Bool.self, forKey: .removeTriggerBeforeSend) ?? false
+    }
+
+    /// `keywords` is the only source of truth. The legacy single `keyword` is
+    /// still written so an older build can read these preferences.
+    func encode(to encoder: Encoder) throws {
+        var values = encoder.container(keyedBy: CodingKeys.self)
+        try values.encode(keywords, forKey: .keywords)
+        try values.encode(TriggerMatcher.normalizedKeywords(keywords).first ?? "Bingo", forKey: .keyword)
+        try values.encode(stabilityDelay, forKey: .stabilityDelay)
+        try values.encode(detectOnly, forKey: .detectOnly)
+        try values.encode(rules, forKey: .rules)
+        try values.encode(removeTriggerBeforeSend, forKey: .removeTriggerBeforeSend)
     }
 }
 
@@ -65,12 +84,22 @@ struct InstalledApplication: Identifiable {
     var id: String { bundleIdentifier }
 }
 
+extension RunMode {
+    var title: String {
+        switch self {
+        case .paused: return L10n.text(zh: "暂停", en: "Paused")
+        case .testing: return L10n.text(zh: "测试识别", en: "Test detection")
+        case .automatic: return L10n.text(zh: "自动发送", en: "Auto send")
+        }
+    }
+}
+
 @MainActor
 final class AppModel: ObservableObject {
     @Published var preferences: Preferences {
         didSet {
             if let data = try? JSONEncoder().encode(preferences) {
-                UserDefaults.standard.set(data, forKey: "bingoPreferencesV1")
+                defaults.set(data, forKey: "bingoPreferencesV1")
             }
             sendingTask?.cancel()
             engine.reset()
@@ -92,6 +121,7 @@ final class AppModel: ObservableObject {
     @Published var editorRule: ApplicationRule?
     @Published var notice: String?
 
+    private let defaults: UserDefaults
     private let client = AccessibilityClient()
     private var engine = TriggerEngine()
     private var timer: Timer?
@@ -99,19 +129,125 @@ final class AppModel: ObservableObject {
     private var lastObservedAt: TimeInterval = 0
 
     var keywordIsValid: Bool {
-        TriggerMatcher.isValidKeyword(preferences.keyword)
+        TriggerMatcher.isValidKeywordList(preferences.keywords)
     }
 
-    init() {
-        if let data = UserDefaults.standard.data(forKey: "bingoPreferencesV1"),
+    /// The keywords that actually take part in matching, in configured order.
+    var activeKeywords: [String] {
+        TriggerMatcher.normalizedKeywords(preferences.keywords)
+    }
+
+    var keywordSummary: String {
+        L10n.joinedKeywords(activeKeywords)
+    }
+
+    var canStart: Bool {
+        isTrusted && keywordIsValid && preferences.rules.contains(where: \.enabled)
+    }
+
+    var runMode: RunMode {
+        get { RunMode(isEnabled: isEnabled, detectOnly: preferences.detectOnly) }
+        set {
+            guard newValue != .paused else { isEnabled = false; return }
+            guard canStart else { return }
+            preferences.detectOnly = newValue == .testing
+            isEnabled = true
+        }
+    }
+
+    var runState: RunState {
+        RunState.resolve(mode: runMode, trusted: isTrusted, validKeywords: keywordIsValid,
+                         hasEnabledApps: preferences.rules.contains(where: \.enabled))
+    }
+
+    var modeTitle: String {
+        switch runState {
+        case .paused: return RunMode.paused.title
+        case .testing: return RunMode.testing.title
+        case .automatic: return RunMode.automatic.title
+        case .needsPermission: return L10n.text(zh: "受阻：未授权", en: "Blocked: permission")
+        case .invalidKeywords: return L10n.text(zh: "受阻：口令无效", en: "Blocked: keywords")
+        case .noEnabledApps: return L10n.text(zh: "受阻：未选应用", en: "Blocked: no apps")
+        }
+    }
+
+    var modeSymbol: String {
+        switch runState {
+        case .paused: return "pause.circle"
+        case .testing: return "waveform.circle"
+        case .automatic: return "paperplane.circle.fill"
+        default: return "exclamationmark.circle"
+        }
+    }
+
+    var modeDescription: String {
+        switch runState {
+        case .paused:
+            if !isTrusted {
+                return L10n.text(zh: "已暂停。请先授权辅助功能，再选择测试识别或自动发送。", en: "Paused. Grant Accessibility access before choosing Test detection or Auto send.")
+            }
+            if !keywordIsValid {
+                return L10n.text(zh: "已暂停。请先修正下方无效口令，再选择运行模式。", en: "Paused. Fix the invalid keywords below before choosing a running mode.")
+            }
+            if !preferences.rules.contains(where: \.enabled) {
+                return L10n.text(zh: "已暂停。请先在下方启用至少一个应用。", en: "Paused. Enable at least one app below first.")
+            }
+            return L10n.text(zh: "已暂停，不读取其他应用。选择「测试识别」或「自动发送」后开始。", en: "Paused; other apps are not read. Choose Test detection or Auto send to start.")
+        case .testing:
+            return L10n.text(zh: "只提示音，不修改草稿、不发送。识别成功后，需主动切到「自动发送」。", en: "Plays a sound only; never edits or sends. Switch to Auto send yourself after detection succeeds.")
+        case .automatic:
+            return L10n.text(zh: "识别口令后发出发送按键；发送前移除口令由下方选项控制。请以目标应用实际结果为准。", en: "Posts the send shortcut after detection. Keyword removal is controlled below. Confirm delivery in the target app.")
+        case .needsPermission:
+            return L10n.text(zh: "辅助功能权限不可用，当前不会处理输入框。可随时选择「暂停」。", en: "Accessibility is unavailable; editors will not be processed. Pause is always available.")
+        case .invalidKeywords:
+            return L10n.text(zh: "请修正无效口令，当前不会处理输入框。可随时选择「暂停」。", en: "Fix the keywords; editors will not be processed. Pause is always available.")
+        case .noEnabledApps:
+            return L10n.text(zh: "请先在下方启用至少一个应用。", en: "Enable at least one app below first.")
+        }
+    }
+
+    /// Fills the first empty row, otherwise appends while there is room.
+    func appendKeyword(_ keyword: String = "") {
+        if let empty = preferences.keywords.firstIndex(where: {
+            $0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        }) {
+            preferences.keywords[empty] = keyword
+            return
+        }
+        guard preferences.keywords.count < TriggerMatcher.maximumKeywordCount else { return }
+        preferences.keywords.append(keyword)
+    }
+
+    /// True while another keyword can still be added or an empty row filled.
+    var canAddKeyword: Bool {
+        preferences.keywords.count < TriggerMatcher.maximumKeywordCount
+            || preferences.keywords.contains { $0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+    }
+
+    func removeKeyword(at index: Int) {
+        guard preferences.keywords.indices.contains(index),
+              preferences.keywords.count > 1 else { return }
+        preferences.keywords.remove(at: index)
+    }
+
+    /// Replaces the whole list with a ready-made pack; every row stays editable.
+    func applyKeywordPack(_ pack: [String]) {
+        preferences.keywords = Array(pack.prefix(TriggerMatcher.maximumKeywordCount))
+    }
+
+    init(defaults: UserDefaults = .standard, startsTimer: Bool = true) {
+        self.defaults = defaults
+        if let data = defaults.data(forKey: "bingoPreferencesV1"),
            let saved = try? JSONDecoder().decode(Preferences.self, from: data) {
             preferences = saved
         } else {
             preferences = Preferences()
         }
         isTrusted = AccessibilityClient.isTrusted
-        timer = Timer.scheduledTimer(withTimeInterval: 0.25, repeats: true) { [weak self] _ in
-            Task { @MainActor in self?.tick() }
+        if startsTimer {
+            timer = Timer.scheduledTimer(withTimeInterval: 0.25, repeats: true) { [weak self] _ in
+                Task { @MainActor in self?.tick() }
+            }
         }
     }
 
@@ -217,25 +353,27 @@ final class AppModel: ObservableObject {
                 ? L10n.text(zh: "\(rule.name)：仅检测，不发送", en: "\(rule.name): detect only; sending is off")
                 : L10n.text(zh: "\(rule.name)：等待句尾口令", en: "\(rule.name): waiting for the final trigger")
             let delay = min(3, max(0.5, preferences.stabilityDelay))
-            guard engine.observe(draft.snapshot, now: ProcessInfo.processInfo.systemUptime,
-                keyword: preferences.keyword, delay: delay) != nil else { return }
+            guard let action = engine.observe(draft.snapshot, now: ProcessInfo.processInfo.systemUptime,
+                keywords: activeKeywords, delay: delay) else { return }
+            // Removal deletes only the keyword that actually matched this draft.
+            let matchedKeyword = action.match.keyword
             if preferences.detectOnly {
-                lastEvent = L10n.text(zh: "\(timeLabel()) · \(rule.name)：识别到口令，未修改、未发送",
-                    en: "\(timeLabel()) · \(rule.name): trigger detected; draft unchanged and not sent")
-                status = L10n.text(zh: "检测成功 · 可关闭「只检测」启用发送", en: "Trigger detected · Turn off Detect Only to enable sending")
+                lastEvent = L10n.text(zh: "\(timeLabel()) · \(rule.name)：识别到口令「\(matchedKeyword)」，未修改、未发送",
+                    en: "\(timeLabel()) · \(rule.name): detected “\(matchedKeyword)”; draft unchanged and not sent")
+                status = L10n.text(zh: "识别成功 · 当前仍为测试识别，不发送", en: "Detected · Still testing; sending is off")
                 NSSound.beep()
                 return
             }
             isSending = true
-            let removalKeyword = preferences.removeTriggerBeforeSend ? preferences.keyword : nil
+            let removalKeyword = preferences.removeTriggerBeforeSend ? matchedKeyword : nil
             status = removalKeyword == nil
                 ? L10n.text(zh: "正在发送完整正文…", en: "Sending the complete draft…")
                 : L10n.text(zh: "正在移除句尾口令并核验…", en: "Removing and verifying the final trigger…")
             lastEvent = removalKeyword == nil
-                ? L10n.text(zh: "\(timeLabel()) · \(rule.name)：已识别口令，正在原样发送",
-                    en: "\(timeLabel()) · \(rule.name): trigger detected; sending unchanged")
-                : L10n.text(zh: "\(timeLabel()) · \(rule.name)：已识别口令，正在处理句尾口令",
-                    en: "\(timeLabel()) · \(rule.name): trigger detected; processing the final trigger")
+                ? L10n.text(zh: "\(timeLabel()) · \(rule.name)：已识别口令「\(matchedKeyword)」，正在原样发送",
+                    en: "\(timeLabel()) · \(rule.name): detected “\(matchedKeyword)”; sending unchanged")
+                : L10n.text(zh: "\(timeLabel()) · \(rule.name)：已识别口令「\(matchedKeyword)」，正在处理句尾口令",
+                    en: "\(timeLabel()) · \(rule.name): detected “\(matchedKeyword)”; processing the final trigger")
             sendingTask = Task { @MainActor [weak self] in
                 guard let self else { return }
                 defer { self.isSending = false; self.engine.reset(); self.sendingTask = nil }
@@ -256,8 +394,8 @@ final class AppModel: ObservableObject {
                 } catch {
                     self.isEnabled = false
                     self.sendFailureMessage = error.localizedDescription
-                    self.lastEvent = L10n.text(zh: "\(self.timeLabel()) · 已暂停：\(error.localizedDescription)",
-                        en: "\(self.timeLabel()) · Paused: \(error.localizedDescription)")
+                    self.lastEvent = L10n.text(zh: "\(self.timeLabel()) · \(rule.name) · 已暂停：\(error.localizedDescription)",
+                        en: "\(self.timeLabel()) · \(rule.name) · Paused: \(error.localizedDescription)")
                     self.status = L10n.text(zh: "发送已中止，请检查原输入框", en: "Sending stopped; check the original input")
                 }
             }
