@@ -1,6 +1,6 @@
 # 1.3.1 preview verification — 2026-10-30
 
-- `swift test`: 58 tests, zero failures; final test/build logs contain no compiler warnings or errors.
+- `swift test`: 69 tests (58 core + 11 app), zero failures; final test/build logs contain no compiler warnings or errors. The initial summary counted the core suite only; this total includes both XCTest bundles.
 - `./build.sh --universal`: arm64 + x86_64, ad-hoc signature verified; 10 icon variants validated before and after ICNS conversion.
 - `./scripts/package-release.sh`: version 1.3.1 / build 12 ZIP, DMG, and SHA256SUMS created. Both checksums passed. Extracted ZIP signature and executable matched the installed build.
 - Installed at `/Applications/Bingo Send.app`; previous installed application backed up locally outside tracked source. Saved preference-data SHA-256 unchanged across replacement and launch. No real-user settings were toggled for automated tests.

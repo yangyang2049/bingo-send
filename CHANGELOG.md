@@ -1,7 +1,15 @@
 # Changelog / 更新记录
 
 ## English
-
++
++### 1.3.2 — preview, 2026-10-30
++
++- Request native Accessibility access once on first main-window presentation when untrusted; avoid opening a competing settings window.
++- Collapse authorized permissions into diagnostics; restore primary guidance if access is lost.
++- Explain the target-app opt-in step and link directly to it before choosing a run mode.
++- Add isolated first-launch, rejection, regrant/revocation, and preferences-reset regressions. Actual installation and local fixture QA are recorded separately.
++
++
 ### 1.3.1 — preview, 2026-10-30
 
 - Replace overlapping enable/detect-only switches with Paused / Test detection / Auto send in Settings and the menu bar.
@@ -48,7 +56,15 @@
 - Pass 28 core automated tests and actual send tests in a local WKWebView editor and a user's Codex app.
 
 ## 简体中文
-
++
++### 1.3.2 — 预览版，2026-10-30
++
++- 首次打开主窗口且未授权时自动发起一次原生授权请求，不再同时跳出第二套设置界面。
++- 已授权入口移入折叠的「权限与诊断」，失效时重新显示顶部引导。
++- 明确授权后仍需选择目标应用，提供直接定位入口，再由用户选择运行模式。
++- 补充隔离的首次、拒绝、重新授权／撤权、清偏好回归；实际安装及本地输入夹具验证另行记录。
++
++
 ### 1.3.1 — 预览版，2026-10-30
 
 - 设置与菜单栏统一使用「暂停／测试识别／自动发送」，替换两个含义重叠的开关。

@@ -1,6 +1,6 @@
 English | [简体中文](USER_GUIDE.zh-CN.md)
 
-> 1.3.1 uses one run-mode selector. Test detection, keep-mode sending, and removal separately. [Changes and checklist](RELEASE_NOTES_1.3.1.md).
+> 1.3.2 requests Accessibility access once on first launch, then moves the entry into Permissions & diagnostics. It uses one run-mode selector. Test detection, keep-mode sending, and removal separately. [Changes and checklist](RELEASE_NOTES_1.3.2.md).
 
 # User Guide
 
@@ -15,7 +15,7 @@ Requires macOS 13 or later. Building from source requires Swift 5.9 or later; th
 The interface follows your system’s preferred language: English or Simplified Chinese, with English as the fallback. macOS permission labels and locations may vary with the system language and version.
 
 1. Move `Bingo Send.app` to its intended long-term location, such as Applications, and open it. If macOS blocks the first launch, use the standard macOS process to allow it in System Settings.
-2. Click **Authorize…** in Bingo Send, then manually enable Bingo Send in **System Settings → Privacy & Security → Accessibility**. This permission lets the app read the focused input field and caret state, and issue the send keystroke.
+2. First launch requests access. If no prompt appears, click **Open System Settings…**, then manually enable Bingo Send in **System Settings → Privacy & Security → Accessibility**. This permission lets the app read the focused input field and caret state, and issue the send keystroke.
 3. Open **App presets**, or **Add from common presets…** under **Enabled apps**. Choose an installed desktop app or a website's browser setup, and check its send shortcut: `Return`, `⌘ Return`, or `⌃ Return`. You can also use **Add app manually…** and select a `.app`.
 4. For a web-based AI service, choose an installed browser in the preset dialog and review the merged allowed domains before adding it. If configuring manually, enable **Restrict by website domain** and enter domains one per line, without `https://` or a path. Examples such as `chat.deepseek.com` and `huggingface.co` are setup suggestions, not verified compatibility claims.
 5. Configure up to 3 final keywords and choose **Test detection**. Enter new text ending in a keyword in the target editor. The sound confirms detection only; the draft stays unchanged and is not sent.

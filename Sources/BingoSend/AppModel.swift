@@ -118,10 +118,15 @@ final class AppModel: ObservableObject {
     @Published private(set) var activeApp = ""
     @Published private(set) var isSending = false
     @Published private(set) var sendFailureMessage: String?
+    @Published private(set) var isPermissionRequestPending = false
     @Published var editorRule: ApplicationRule?
     @Published var notice: String?
 
     private let defaults: UserDefaults
+    private let trustReader: @MainActor () -> Bool
+    private let promptRequester: @MainActor () -> Void
+    private let settingsOpener: @MainActor () -> Void
+    private static let permissionOnboardingKey = "bingoPermissionOnboardingHandledV1"
     private let client = AccessibilityClient()
     private var engine = TriggerEngine()
     private var timer: Timer?
@@ -235,15 +240,25 @@ final class AppModel: ObservableObject {
         preferences.keywords = Array(pack.prefix(TriggerMatcher.maximumKeywordCount))
     }
 
-    init(defaults: UserDefaults = .standard, startsTimer: Bool = true) {
+    init(defaults: UserDefaults = .standard, startsTimer: Bool = true,
+         trustReader: @escaping @MainActor () -> Bool = { AccessibilityClient.isTrusted },
+         promptRequester: @escaping @MainActor () -> Void = { AccessibilityClient.requestPermission() },
+         settingsOpener: @escaping @MainActor () -> Void = {
+             if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
+                 NSWorkspace.shared.open(url)
+             }
+         }) {
         self.defaults = defaults
+        self.trustReader = trustReader
+        self.promptRequester = promptRequester
+        self.settingsOpener = settingsOpener
         if let data = defaults.data(forKey: "bingoPreferencesV1"),
            let saved = try? JSONDecoder().decode(Preferences.self, from: data) {
             preferences = saved
         } else {
             preferences = Preferences()
         }
-        isTrusted = AccessibilityClient.isTrusted
+        isTrusted = trustReader()
         if startsTimer {
             timer = Timer.scheduledTimer(withTimeInterval: 0.25, repeats: true) { [weak self] _ in
                 Task { @MainActor in self?.tick() }
@@ -251,11 +266,30 @@ final class AppModel: ObservableObject {
         }
     }
 
-    func requestPermission() {
-        AccessibilityClient.requestPermission()
-        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
-            NSWorkspace.shared.open(url)
-        }
+    /// Called after the main window appears. Mark before requesting because the
+    /// native prompt is asynchronous and SwiftUI can present the view again.
+    func requestInitialPermissionIfNeeded() {
+        let handled = defaults.bool(forKey: Self.permissionOnboardingKey)
+        defaults.set(true, forKey: Self.permissionOnboardingKey)
+        let trusted = refreshPermission()
+        guard !handled, !trusted else { return }
+        isPermissionRequestPending = true
+        promptRequester()
+    }
+
+    /// Explicit fallback after the initial OS prompt; never opens a second
+    /// native prompt and a System Settings window at the same time.
+    func openPermissionSettings() {
+        isPermissionRequestPending = !refreshPermission()
+        settingsOpener()
+    }
+
+    @discardableResult
+    func refreshPermission() -> Bool {
+        let trusted = trustReader()
+        if trusted != isTrusted { isTrusted = trusted }
+        if trusted { isPermissionRequestPending = false }
+        return trusted
     }
 
     func addApplication() {
@@ -327,8 +361,7 @@ final class AppModel: ObservableObject {
     }
 
     private func tick() {
-        let trusted = AccessibilityClient.isTrusted
-        if trusted != isTrusted { isTrusted = trusted }
+        let trusted = refreshPermission()
         guard isEnabled else { return }
         guard trusted else { engine.reset(); status = L10n.text(zh: "请先授权辅助功能", en: "Allow Accessibility first"); return }
         guard keywordIsValid else { engine.reset(); status = L10n.text(zh: "请填写有效的口令", en: "Enter a valid trigger"); return }

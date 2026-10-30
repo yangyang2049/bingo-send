@@ -109,24 +109,51 @@ private struct MainView: View {
         .sheet(item: $model.editorRule) { rule in
             RuleEditor(model: model, rule: rule)
         }
+        .onAppear { model.requestInitialPermissionIfNeeded() }
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            model.refreshPermission()
+        }
     }
 }
 
 private struct SettingsView: View {
     @ObservedObject var model: AppModel
     let showPresets: () -> Void
+    @State private var permissionDetailsExpanded = false
 
     var body: some View {
+        ScrollViewReader { proxy in
         Form {
             Section {
+                if !model.isTrusted {
                 HStack {
                     VStack(alignment: .leading, spacing: 4) {
-                        Text(model.isTrusted ? L10n.text(zh: "辅助功能已授权", en: "Accessibility authorized") : L10n.text(zh: "先授权辅助功能", en: "Allow Accessibility access"))
+                        Text(L10n.text(zh: "1. 允许辅助功能访问", en: "1. Allow Accessibility access"))
                         Text(L10n.text(zh: "用于读取聚焦输入框、按选项处理句尾口令并触发发送。", en: "Reads the focused editor, optionally removes the final keyword, and triggers sending."))
                             .font(.caption).foregroundStyle(.secondary)
                     }
                     Spacer()
-                    Button(model.isTrusted ? L10n.text(zh: "系统设置…", en: "System Settings…") : L10n.text(zh: "去授权…", en: "Grant access…")) { model.requestPermission() }
+                    Button(L10n.text(zh: "打开系统设置…", en: "Open System Settings…")) { model.openPermissionSettings() }
+                }
+                Text(model.isPermissionRequestPending
+                    ? L10n.text(zh: "已发起系统授权请求。若未出现提示，请打开系统设置，添加并允许 Bingo Send。完成后这里会自动更新。", en: "Accessibility access was requested. If no prompt appears, open System Settings and add and allow Bingo Send. This view updates after access is granted.")
+                    : L10n.text(zh: "辅助功能权限当前不可用。请在系统设置中允许 Bingo Send，完成后这里会自动更新。", en: "Accessibility access is currently unavailable. Allow Bingo Send in System Settings; this view updates afterward."))
+                    .font(.caption).foregroundStyle(.secondary)
+                }
+                if !model.preferences.rules.contains(where: \.enabled) {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(model.isTrusted
+                                ? L10n.text(zh: "已授权 · 下一步选择目标应用", en: "Access granted · Choose a target app next")
+                                : L10n.text(zh: "2. 选择目标应用", en: "2. Choose a target app"))
+                            Text(L10n.text(zh: "只处理你主动启用的应用。选好后，再选择下方运行模式。", en: "Only apps you enable are processed. Then choose a run mode below."))
+                                .font(.caption).foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Button(L10n.text(zh: "选择目标应用…", en: "Choose target apps…")) {
+                            withAnimation { proxy.scrollTo("enabled-apps", anchor: .top) }
+                        }
+                    }
                 }
                 Picker(L10n.text(zh: "运行模式", en: "Run mode"), selection: $model.runMode) {
                     ForEach(RunMode.allCases, id: \.self) { mode in
@@ -137,10 +164,6 @@ private struct SettingsView: View {
                 .disabled(!model.canStart && model.runMode == .paused)
                 Text(model.modeDescription)
                     .font(.callout).fixedSize(horizontal: false, vertical: true)
-                if !model.preferences.rules.contains(where: \.enabled) {
-                    Text(L10n.text(zh: "请先在「启用范围」添加并启用一个应用，再选择运行模式。", en: "Add and enable an app under Enabled apps before choosing a running mode."))
-                        .font(.caption).foregroundStyle(.secondary)
-                }
                 Toggle(L10n.text(zh: "发送前移除句尾口令", en: "Remove final keyword before sending"), isOn: $model.preferences.removeTriggerBeforeSend)
                     .disabled(model.runMode == .testing)
                 if model.runMode == .testing {
@@ -249,8 +272,27 @@ private struct SettingsView: View {
                 Text(L10n.text(zh: "只处理已启用应用中的聚焦输入框。已识别浏览器强制限制域名；其他浏览器请手动开启「按网页域名限制」。特殊编辑器可能无法读取。", en: "Only enabled apps are checked. Recognized browsers require allowed domains; enable domain restrictions for other browsers. Some editors may not expose their text."))
                     .font(.caption).foregroundStyle(.secondary)
             } header: { Text(L10n.text(zh: "启用范围", en: "Enabled apps")) }
+            .id("enabled-apps")
+
+            if model.isTrusted {
+                Section {
+                    DisclosureGroup(isExpanded: $permissionDetailsExpanded) {
+                        Label(L10n.text(zh: "辅助功能已授权", en: "Accessibility authorized"), systemImage: "checkmark.circle")
+                        Text(L10n.text(zh: "用于读取聚焦输入框、按选项移除句尾口令和发出发送按键。", en: "Used to read the focused editor, optionally remove the final keyword, and post the send shortcut."))
+                            .font(.caption).foregroundStyle(.secondary)
+                        HStack {
+                            Button(L10n.text(zh: "打开系统设置…", en: "Open System Settings…")) { model.openPermissionSettings() }
+                            Button(L10n.text(zh: "刷新授权状态", en: "Refresh permission status")) { model.refreshPermission() }
+                        }
+                    } label: {
+                        Text(L10n.text(zh: "权限与诊断", en: "Permissions & diagnostics"))
+                    }
+                }
+            }
         }
         .formStyle(.grouped)
+        .onChange(of: model.isTrusted) { _ in permissionDetailsExpanded = false }
+        }
     }
 }
 
@@ -401,7 +443,7 @@ private struct HelpView: View {
                 Text(L10n.text(zh: "保留你的输入法", en: "Keep your input method")).font(.title3.weight(.semibold))
                 Text(L10n.text(zh: "豆包或其他输入法继续负责语音转文字。Bingo Send 只检查允许范围内的当前输入框，检测到口令后发送；默认保留口令，也可选择先移除句尾口令。不录音、不联网、不保存正文。", en: "Keep using Doubao or your preferred dictation input method. Bingo Send checks the focused editor in enabled apps and triggers sending when the final keyword is detected. Keep the keyword, or choose to remove it. No audio recording, network requests, or saved chat text."))
                 Text(L10n.text(zh: "第一次使用", en: "Getting started")).font(.headline)
-                Text(L10n.text(zh: "1. 在设置中点击「去授权」，亲自在系统辅助功能列表开启 Bingo Send。\n\n2. 添加并启用目标应用；网页版请选择浏览器，确认允许域名与发送按键。\n\n3. 设置最多 3 个口令，选择「测试识别」，再在目标输入框输入一条以口令结尾的新内容。提示音仅代表识别成功，不修改、不发送。\n\n4. 选择「自动发送」，先保持移除关闭，测试另一条新内容；确认真实发送后，再单独测试移除。目标应用本身必须能够发送：模型不可用、发送按钮禁用或网络错误均可能阻止发送。", en: "1. Grant Bingo Send Accessibility access yourself in System Settings.\n\n2. Add and enable a target app. For a website, review the browser, allowed domains, and send shortcut.\n\n3. Set up to 3 keywords and choose Test detection. Enter a new message ending in a keyword in the target editor. The sound confirms detection only; the draft is not edited or sent.\n\n4. Choose Auto send, leave removal off, and test another new message. Test removal separately afterward. The target app must be ready to send: unavailable models, a disabled send button, or network errors can prevent sending."))
+                Text(L10n.text(zh: "1. 首次打开会自动申请辅助功能权限；请在系统提示中打开系统设置，亲自允许 Bingo Send。若未出现提示，使用「打开系统设置…」。授权后入口收进「权限与诊断」。\n\n2. 添加并启用目标应用；网页版请选择浏览器，确认允许域名与发送按键。\n\n3. 设置最多 3 个口令，选择「测试识别」，再在目标输入框输入一条以口令结尾的新内容。提示音仅代表识别成功，不修改、不发送。\n\n4. 选择「自动发送」，先保持移除关闭，测试另一条新内容；确认真实发送后，再单独测试移除。目标应用本身必须能够发送：模型不可用、发送按钮禁用或网络错误均可能阻止发送。", en: "1. On first launch, Bingo Send requests Accessibility access. Open System Settings from the prompt and allow access yourself. If no prompt appears, use Open System Settings. After authorization, the entry moves to Permissions & diagnostics.\n\n2. Add and enable a target app. For a website, review the browser, allowed domains, and send shortcut.\n\n3. Set up to 3 keywords and choose Test detection. Enter a new message ending in a keyword in the target editor. The sound confirms detection only; the draft is not edited or sent.\n\n4. Choose Auto send, leave removal off, and test another new message. Test removal separately afterward. The target app must be ready to send: unavailable models, a disabled send button, or network errors can prevent sending."))
                 Text(L10n.text(zh: "兼容范围", en: "Compatibility")).font(.headline)
                 Text(L10n.text(zh: "原生应用、Electron 应用、浏览器网页都可以添加，但控件必须公开输入框文本和光标位置。预设只帮助填写范围；Claude、Gemini、Grok、DeepSeek、Kimi、ZCode 等需要逐个验证。终端中的 CLI 工具不包含在这些预设的已验证范围内。", en: "You can add native apps, Electron apps, and browser editors that expose their text and caret through Accessibility. Presets simplify setup; test each editor separately. Terminal CLI editors are not covered."))
                 Text(L10n.text(zh: "输入法与发送", en: "Dictation and sending")).font(.headline)

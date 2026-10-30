@@ -25,12 +25,12 @@ Bingo Send is a standalone macOS menu bar app. It watches the focused editor in 
 “Review this page, Bingo.” → text settles → sends “Review this page, Bingo.”
 ```
 
-> **1.3.1 preview:** one run-mode selector—Paused / Test detection / Auto send—replaces the two overlapping switches. [Changes and test checklist](docs/RELEASE_NOTES_1.3.1.md). The stable download above remains 1.2.0 until the preview is released.
+> **1.3.2 preview:** one run-mode selector—Paused / Test detection / Auto send—replaces the two overlapping switches. [Changes and test checklist](docs/RELEASE_NOTES_1.3.2.md). The stable download above remains 1.2.0 until the preview is released.
 
 ## Start in three steps
 
 1. **Install.** Open the [universal DMG](https://github.com/yangyang2049/bingo-send/releases/download/v1.2.0/BingoSend-1.2.0-macOS-universal.dmg), drag Bingo Send into Applications, and open it. The package contains Apple Silicon and Intel binaries.
-2. **Authorize and choose your setup.** Grant Accessibility permission in System Settings yourself. Choose an app or website from **App presets**, or add an app manually. For a website, select your browser and review the allowed domains and send shortcut; Codex defaults to **Return**.
+2. **Authorize and choose your setup.** First launch requests Accessibility permission; allow access yourself in System Settings. If no prompt appears, use Open System Settings. After access is granted, the entry moves to Permissions & diagnostics at the bottom. Choose an app or website from **App presets**, or add an app manually. For a website, select your browser and review the allowed domains and send shortcut; Codex defaults to **Return**.
 3. **Set keywords and choose a mode.** Configure up to 3 final keywords. Choose **Test detection** for a sound without editing or sending; then choose **Auto send** for a separate send test. **Paused** stops observation. Every launch starts paused; saved keywords, app rules, and removal settings are retained.
 
 The interface follows your system’s preferred language: English or Simplified Chinese, with English as the fallback.
