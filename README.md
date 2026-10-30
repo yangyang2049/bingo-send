@@ -25,18 +25,20 @@ Bingo Send is a standalone macOS menu bar app. It watches the focused editor in 
 “Review this page, Bingo.” → text settles → sends “Review this page, Bingo.”
 ```
 
+> **1.3.2 preview:** one run-mode selector—Paused / Test detection / Auto send—replaces the two overlapping switches. [Changes and test checklist](docs/RELEASE_NOTES_1.3.2.md). The stable download above remains 1.2.0 until the preview is released.
+
 ## Start in three steps
 
 1. **Install.** Open the [universal DMG](https://github.com/yangyang2049/bingo-send/releases/download/v1.2.0/BingoSend-1.2.0-macOS-universal.dmg), drag Bingo Send into Applications, and open it. The package contains Apple Silicon and Intel binaries.
-2. **Authorize and choose your setup.** Grant Accessibility permission in System Settings yourself. Choose an app or website from **App presets**, or add an app manually. For a website, select your browser and review the allowed domains and send shortcut; Codex defaults to **Return**.
-3. **Choose a keyword and try it.** Select one preset keyword or enter your own. Turn on keyword sending with detection-only mode, test a new message, then turn off detection-only mode for actual sending. **Fresh installs start with every app disabled and detection-only on; every launch starts paused.** Existing saved settings are preserved.
+2. **Authorize and choose your setup.** First launch requests Accessibility permission; allow access yourself in System Settings. If no prompt appears, use Open System Settings. After access is granted, the entry moves to Permissions & diagnostics at the bottom. Choose an app or website from **App presets**, or add an app manually. For a website, select your browser and review the allowed domains and send shortcut; Codex defaults to **Return**.
+3. **Set keywords and choose a mode.** Configure up to 3 final keywords. Choose **Test detection** for a sound without editing or sending; then choose **Auto send** for a separate send test. **Paused** stops observation. Every launch starts paused; saved keywords, app rules, and removal settings are retained.
 
 The interface follows your system’s preferred language: English or Simplified Chinese, with English as the fallback.
 
 ## Small app, focused job
 
 - **Your input method:** works on text after dictation, typing, or pasting.
-- **Your keyword:** choose Bingo, Submit, Send, 发送, 提交, 完成, 确认, 确定, or a custom suffix. One keyword is active at a time; keyword matching is case-insensitive and trailing spaces or punctuation are allowed. Stabilization delay: 0.5–3 seconds.
+- **Your keywords:** up to 3 at once, and any one of them at the end sends. Fresh installs are prefilled with three in the interface language—Bingo, Submit, Send, or 发送, 提交, 完成—and you can switch to a mixed set or write your own. Matching is case-insensitive and trailing spaces or punctuation are allowed. Stabilization delay: 0.5–3 seconds.
 - **Keep or remove:** keep the keyword by default, or opt in to **Remove final keyword before sending**. Removal edits the focused draft and requires editor support; verify it separately in each app.
 - **Your setup:** 13 opt-in app and website presets in one searchable list, plus manual app selection. Web presets preserve existing allowed domains; all enabled sites in one browser share its Return / ⌘ Return / ⌃ Return shortcut.
 - **Your scope:** explicit app allowlist and browser domain restrictions. Presets help configure scope; each editor still needs its own detection and send test.

@@ -82,8 +82,20 @@ public enum AgentCatalog {
 }
 
 public enum KeywordCatalog {
-    /// Suggestions for one active keyword. Matching is already case insensitive.
+    /// Suggestions for a single keyword row. Matching is already case insensitive.
     public static let presets = ["Bingo", "Submit", "Send", "发送", "提交", "完成", "确认", "确定"]
+
+    /// One-tap sets for the default three keywords. Users can edit every row
+    /// afterwards, including mixing languages.
+    public static let englishPack = ["Bingo", "Submit", "Send"]
+    public static let chinesePack = ["发送", "提交", "完成"]
+    public static let mixedPack = ["Bingo", "Send", "发送"]
+
+    /// Fresh installs get a pack in the interface language: English for English
+    /// users, otherwise Simplified Chinese.
+    public static func defaultPack(forSimplifiedChinese chinese: Bool) -> [String] {
+        chinese ? chinesePack : englishPack
+    }
 }
 
 public enum PresetDomains {

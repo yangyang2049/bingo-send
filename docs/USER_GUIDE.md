@@ -1,5 +1,7 @@
 English | [简体中文](USER_GUIDE.zh-CN.md)
 
+> 1.3.2 requests Accessibility access once on first launch, then moves the entry into Permissions & diagnostics. It uses one run-mode selector. Test detection, keep-mode sending, and removal separately. [Changes and checklist](RELEASE_NOTES_1.3.2.md).
+
 # User Guide
 
 Keep using Doubao or another input method. Say your chosen keyword, **Bingo** by default, at the end of your message. Once the text appears in the input field and remains stable, Bingo Send detects the keyword, reads back and verifies the current draft, and triggers the target app’s send shortcut. **By default, the entire message and keyword are sent unchanged.** Optional keyword removal is described below.
@@ -13,13 +15,13 @@ Requires macOS 13 or later. Building from source requires Swift 5.9 or later; th
 The interface follows your system’s preferred language: English or Simplified Chinese, with English as the fallback. macOS permission labels and locations may vary with the system language and version.
 
 1. Move `Bingo Send.app` to its intended long-term location, such as Applications, and open it. If macOS blocks the first launch, use the standard macOS process to allow it in System Settings.
-2. Click **Authorize…** in Bingo Send, then manually enable Bingo Send in **System Settings → Privacy & Security → Accessibility**. This permission lets the app read the focused input field and caret state, and issue the send keystroke.
+2. First launch requests access. If no prompt appears, click **Open System Settings…**, then manually enable Bingo Send in **System Settings → Privacy & Security → Accessibility**. This permission lets the app read the focused input field and caret state, and issue the send keystroke.
 3. Open **App presets**, or **Add from common presets…** under **Enabled apps**. Choose an installed desktop app or a website's browser setup, and check its send shortcut: `Return`, `⌘ Return`, or `⌃ Return`. You can also use **Add app manually…** and select a `.app`.
 4. For a web-based AI service, choose an installed browser in the preset dialog and review the merged allowed domains before adding it. If configuring manually, enable **Restrict by website domain** and enter domains one per line, without `https://` or a path. Examples such as `chat.deepseek.com` and `huggingface.co` are setup suggestions, not verified compatibility claims.
-5. In settings, use **Choose a common keyword** or enter a custom **Final keyword**. Leave **Detect only, do not send** on, then turn on **Enable keyword sending**. Switch to the target input field, enter a **new** test message such as `Hello, Bingo.` if Bingo is selected, and leave the caret at the end. A successful detection produces a sound and a status entry; the text remains unchanged.
-6. Once detection works, leave **Remove final keyword before sending** off, turn off **Detect only, do not send**, enter another unimportant new message, and check whether the target app actually sends it. Test each app or website separately. If you want removal mode, enable and test it separately afterward.
+5. Configure up to 3 final keywords and choose **Test detection**. Enter new text ending in a keyword in the target editor. The sound confirms detection only; the draft stays unchanged and is not sent.
+6. Leave **Remove final keyword before sending** off, choose **Auto send**, and verify another harmless new message is actually sent. Enable and test removal separately afterward.
 
-Fresh installations start with every app disabled and detection-only mode on. Presets are added only when you choose them. Existing saved keywords, app rules, detection-only settings, and shortcuts are retained without migration or replacement. The app starts paused every time it launches. The paper-plane icon in the menu bar lets you open settings, enable, pause, or quit it.
+Fresh installs have no enabled apps; every launch starts paused. Saved keywords, rules, removal, delay, and shortcuts are preserved. The menu bar offers the run mode, Settings, and Quit.
 
 ## App and website presets
 
@@ -57,7 +59,7 @@ When a speech-input overlay briefly takes focus, the app cancels the pending sen
 
 ## Keyword and Doubao input
 
-- The default keyword is `Bingo`. Choose `Bingo`, `Submit`, `Send`, `发送`, `提交`, `完成`, `确认`, or `确定` from **Choose a common keyword**, or type a custom keyword containing letters or numbers, up to 40 characters, with no final punctuation or line breaks. Only one keyword is active at a time; selecting a suggestion replaces the active keyword, and `BINGO` matches `Bingo` without needing a second entry.
+- Fresh installations start with 3 keywords: `发送`, `提交`, `完成` for a Simplified Chinese interface, and `Bingo`, `Submit`, `Send` otherwise. **Up to 3 keywords can be active at once, and any one of them at the end sends.** **Fill in common keywords** replaces the list with an English, Chinese, or mixed set (`Bingo`, `Send`, `发送`); every row can also be typed over. Each keyword needs letters or numbers, up to 40 characters, with no final punctuation or line breaks. Matching is case-insensitive, so `BINGO` matches `Bingo` and case variants in the list are merged. The longest keyword wins: `Bingo Send` is not treated as `Send`.
 - Only the complete keyword at the end of the message matches. Keyword matching is case-insensitive, and trailing whitespace and punctuation are allowed. A message containing only the keyword does not trigger sending.
 - The caret must be at the end with no selected text. The default stability delay is 1 second, adjustable from 0.5 to 3 seconds. Increase it if text arrives incrementally and slowly.
 - Before sending, the tool reads back the entire draft, focused input field, and end-of-text caret. In default keep mode, after confirming the content is unchanged, it issues the configured shortcut to the original target app; the keyword, punctuation, and all other text remain unchanged. Optional removal verifies the edited result before issuing the shortcut.
@@ -78,7 +80,7 @@ If the editor cannot support or verify the edit, or the context changes, the app
 
 **The keyword was detected, but the message was not sent.**
 
-First check that **Detect only, do not send** is off. Then check the app’s send shortcut, the chat input’s state, and the browser domain settings. A status saying that the send keystroke was issued means only that the keystroke was issued. Network conditions, the send button’s state, or shortcut configuration can still prevent the target app from sending. Check the actual result in the target app.
+First check that **Auto send** is selected. Then check the app’s send shortcut, the chat input’s state, and the browser domain settings. A status saying that the send keystroke was issued means only that the keystroke was issued. Network conditions, the send button’s state, or shortcut configuration can still prevent the target app from sending. Check the actual result in the target app.
 
 **Where can I see why an action was canceled or failed?**
 
@@ -104,7 +106,7 @@ If the old entry cannot be removed, or the old signature still appears to be in 
 tccutil reset Accessibility io.local.bingosend
 ```
 
-This revokes Bingo Send's Accessibility permission, so it must be granted again; it does not reset other apps' grants or erase the saved keyword and app list. Reopen Bingo Send, click **Authorize…**, then manually enable the current app in the system Accessibility list. Every launch starts paused; turn on **Enable keyword sending** only after authorization is confirmed.
+This revokes Bingo Send's Accessibility permission, so it must be granted again; it does not reset other apps' grants or erase the saved keyword and app list. Reopen Bingo Send, click **Authorize…**, then manually enable the current app in the system Accessibility list. Every launch starts paused; choose **Test detection** or **Auto send** only after authorization is confirmed.
 
 **Does success in “Try keyword” mean the target app works?**
 
@@ -120,7 +122,7 @@ See the project [README](../README.md) for build instructions and the [compatibi
 
 ## Stopping and uninstalling
 
-To pause, turn off **Enable keyword sending** from the menu bar. To stop completely, choose **Quit Bingo Send**. Closing only the settings window leaves the menu bar app running.
+To pause, choose **Paused** from the menu bar. To stop completely, choose **Quit Bingo Send**. Closing only the settings window leaves the menu bar app running.
 
 To uninstall, quit the app and delete `Bingo Send.app`. You can also remove its system Accessibility entry. To clear the saved keyword and app list as well, quit first, then run:
 

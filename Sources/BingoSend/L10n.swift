@@ -1,4 +1,5 @@
 import Foundation
+import BingoCore
 
 /// UI language follows the system's ordered preferred languages. The app has
 /// no language/region setting, and unsupported language lists use English.
@@ -27,5 +28,15 @@ enum L10n {
     static func text(zh: String, en: String,
                      preferredLanguages: [String] = Locale.preferredLanguages) -> String {
         language(for: preferredLanguages) == .simplifiedChinese ? zh : en
+    }
+
+    /// Fresh installs start with a three-keyword pack in the interface language.
+    static func defaultKeywords(for preferredLanguages: [String] = Locale.preferredLanguages) -> [String] {
+        KeywordCatalog.defaultPack(forSimplifiedChinese: language(for: preferredLanguages) == .simplifiedChinese)
+    }
+
+    /// Joins a keyword list for status text, e.g. "Bingo、Submit、Send".
+    static func joinedKeywords(_ keywords: [String]) -> String {
+        keywords.joined(separator: text(zh: "、", en: ", "))
     }
 }
