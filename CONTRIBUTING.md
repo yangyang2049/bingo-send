@@ -21,6 +21,15 @@ If you change packaging scripts, also run `./scripts/package-release.sh` and ins
 - Do not log drafts, page URLs, or window titles. Do not add telemetry or upload input content.
 - Stop when editor state or context cannot be read or confirmed. Do not loosen checks to work around a failure.
 
+Continued dictation before deletion may abandon the current attempt without
+disabling Auto send. After suffix selection, this requires verified newer text,
+an intact original body prefix and an unselected end caret in the same context.
+Once Backspace has been attempted, an uncertain result stops that transaction,
+while keeping the selected run mode. Reject both the failed original draft and
+its possible delayed deletion result until new text is entered. Never retry a
+deletion or restore an older draft. See the local
+[1.3.4 verification record](docs/VERIFICATION_1.3.4.md).
+
 Rebuilding changes an ad-hoc signature and may require removing the old Accessibility entry and adding the current app. Test a separate copy instead of replacing the version currently in use.
 
 Follow the [compatibility reporting guide](docs/COMPATIBILITY.md) when submitting results. Redact chats, account information, and personal details from screenshots. Do not upload certificates, keys, signing credentials, or local settings.

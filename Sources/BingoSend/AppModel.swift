@@ -409,14 +409,31 @@ final class AppModel: ObservableObject {
                     en: "\(timeLabel()) · \(rule.name): detected “\(matchedKeyword)”; processing the final trigger")
             sendingTask = Task { @MainActor [weak self] in
                 guard let self else { return }
-                defer { self.isSending = false; self.engine.reset(); self.sendingTask = nil }
+                var inputResumed = false
+                defer {
+                    self.isSending = false
+                    self.engine.reset()
+                    if inputResumed && self.isEnabled {
+                        self.engine.resumeAfterInputChange(from: draft.snapshot)
+                    }
+                    self.sendingTask = nil
+                }
                 do {
                     try Task.checkCancellation()
-                    try await self.client.sendDraft(draft, shortcut: rule.shortcut,
+                    let result = try await self.client.sendDraft(draft, shortcut: rule.shortcut,
                         allowedPageHosts: hosts, removeKeyword: removalKeyword)
-                    self.lastEvent = L10n.text(zh: "\(self.timeLabel()) · 已向 \(rule.name) 发出发送按键；请在目标应用确认",
-                        en: "\(self.timeLabel()) · Send shortcut posted to \(rule.name); confirm in the target app")
-                    self.status = L10n.text(zh: "已发出发送按键", en: "Send shortcut posted")
+                    switch result {
+                    case .posted:
+                        self.sendFailureMessage = nil
+                        self.lastEvent = L10n.text(zh: "\(self.timeLabel()) · 已向 \(rule.name) 发出发送按键；请在目标应用确认",
+                            en: "\(self.timeLabel()) · Send shortcut posted to \(rule.name); confirm in the target app")
+                        self.status = L10n.text(zh: "已发出发送按键", en: "Send shortcut posted")
+                    case .inputResumed:
+                        inputResumed = true
+                        self.lastEvent = L10n.text(zh: "\(self.timeLabel()) · 检测到继续输入，本次未删除、未发送，重新等待句尾口令",
+                            en: "\(self.timeLabel()) · Input resumed; no deletion or send posted. Waiting for a stable final trigger")
+                        self.status = L10n.text(zh: "继续输入中，等待文字稳定", en: "Input resumed; waiting for stable text")
+                    }
                 } catch is CancellationError {
                     self.lastEvent = removalKeyword == nil
                         ? L10n.text(zh: "\(self.timeLabel()) · 已取消发送，请检查输入框",
@@ -425,17 +442,27 @@ final class AppModel: ObservableObject {
                             en: "\(self.timeLabel()) · Sending cancelled; check the input. The draft or selection may have changed")
                     self.status = L10n.text(zh: "已取消发送，请检查输入框", en: "Sending cancelled; check the input")
                 } catch {
-                    self.isEnabled = false
-                    self.sendFailureMessage = error.localizedDescription
-                    self.lastEvent = L10n.text(zh: "\(self.timeLabel()) · \(rule.name) · 已暂停：\(error.localizedDescription)",
-                        en: "\(self.timeLabel()) · \(rule.name) · Paused: \(error.localizedDescription)")
-                    self.status = L10n.text(zh: "发送已中止，请检查原输入框", en: "Sending stopped; check the original input")
+                    self.recordSendFailure(error, snapshot: draft.snapshot,
+                        removalKeyword: removalKeyword, appName: rule.name)
                 }
             }
         } catch {
             suspendObservation()
             status = L10n.text(zh: "\(rule.name)：\(error.localizedDescription)", en: "\(rule.name): \(error.localizedDescription)")
         }
+    }
+
+    /// An error stops only this transaction. The user's chosen mode is kept;
+    /// the engine rejects this draft and its possible delayed edit result.
+    func recordSendFailure(_ error: Error, snapshot: DraftSnapshot, removalKeyword: String?, appName: String) {
+        let possibleEditedText = removalKeyword.flatMap {
+            TriggerText.removingSuffix(from: snapshot.text, keyword: $0)
+        }
+        engine.recordFailedAttempt(snapshot, possibleEditedText: possibleEditedText)
+        sendFailureMessage = error.localizedDescription
+        lastEvent = L10n.text(zh: "\(timeLabel()) · \(appName) · 本次已跳过：\(error.localizedDescription)",
+            en: "\(timeLabel()) · \(appName) · Attempt skipped: \(error.localizedDescription)")
+        status = L10n.text(zh: "本次未完成，请检查草稿；等待新的输入", en: "Attempt incomplete; check the draft. Waiting for new input")
     }
 
     private func suspendObservation() {

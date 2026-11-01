@@ -12,7 +12,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/yangyang2049/bingo-send/releases/download/v1.2.0/BingoSend-1.2.0-macOS-universal.dmg"><img src="https://img.shields.io/badge/下载_macOS_应用-1.2.0-111111?style=for-the-badge&logo=apple&logoColor=white" alt="下载 Bingo Send 1.2.0 macOS 安装包"></a>
+  <a href="https://github.com/yangyang2049/bingo-send/releases/download/v1.3.4/BingoSend-1.3.4-macOS-universal.dmg"><img src="https://img.shields.io/badge/下载_macOS_应用-1.3.4-111111?style=for-the-badge&logo=apple&logoColor=white" alt="下载 Bingo Send 1.3.4 macOS 安装包"></a>
 </p>
 
 <p align="center">
@@ -25,11 +25,11 @@ Bingo Send 是一个独立的 macOS 菜单栏应用。在你启用的应用里�
 「帮我检查这个页面，Bingo。」 → 等文字稳定 → 发送「帮我检查这个页面，Bingo。」
 ```
 
-> **1.3.2 预览版：** 用「暂停／测试识别／自动发送」替换两个含义重叠的开关。[改动与测试清单](docs/RELEASE_NOTES_1.3.2.zh-CN.md)。预览版正式发布前，上方稳定版下载仍为 1.2.0。
+> **1.3.4：** 发送失败不再把「自动发送」切到「暂停」，后续新输入可继续处理，同一份失败草稿不会自动重试。同时包含最多三个口令、清晰的运行模式和首次授权引导。[发布说明](docs/RELEASE_NOTES_1.3.4.zh-CN.md)。
 
 ## 三步开始
 
-1. **安装应用。** 打开 [1.2.0 通用 DMG](https://github.com/yangyang2049/bingo-send/releases/download/v1.2.0/BingoSend-1.2.0-macOS-universal.dmg)，把 Bingo Send 拖进「应用程序」，然后打开。安装包包含 Apple Silicon 与 Intel 两种架构。
+1. **安装应用。** 打开 [1.3.4 通用 DMG](https://github.com/yangyang2049/bingo-send/releases/download/v1.3.4/BingoSend-1.3.4-macOS-universal.dmg)，把 Bingo Send 拖进「应用程序」，然后打开。安装包包含 Apple Silicon 与 Intel 两种架构。
 2. **授权并选择配置。** 首次打开会自动申请辅助功能；请亲自在系统设置中允许。若没有提示，点「打开系统设置…」。授权成功后入口收进页面底部「权限与诊断」。从「应用预设」选择应用或网站，也可手动添加应用；网页版需选择浏览器、核对允许的域名与发送按键，Codex 默认 **Return**。
 3. **设置口令并选择模式。** 配置最多 3 个句尾口令。「测试识别」只提示音、不修改、不发送；之后切到「自动发送」另做发送测试。「暂停」停止读取。每次启动均暂停，已有口令、应用规则和移除设置继续保留。
 
@@ -46,7 +46,7 @@ Bingo Send 是一个独立的 macOS 菜单栏应用。在你启用的应用里�
 
 ## 兼容情况
 
-**1.1.0 保留模式已由用户在 Codex 实测自动发送成功。** 1.2.0 增加配置预设、口令选项、可选移除、新图标与中英文界面；该版本的验证状态见[发布说明](docs/RELEASE_NOTES_1.2.0.zh-CN.md)。Claude、Gemini、Grok、WorkBuddy、DeepSeek、Kimi、HuggingChat 等应用或网站**仍需逐个验证**，保留与移除模式也需分别测试；提供预设或加入白名单不代表已兼容，终端 CLI 不包含在预设覆盖范围内。[兼容性记录 →](docs/COMPATIBILITY.zh-CN.md)
+**1.3.4 在 Apple Silicon 上完成全新安装、辅助功能授权，用户确认日常使用正常。** 104 项自动测试通过；这不代表所有编辑器的移除口令和连续语音场景均已实测，额外的本地编辑器测试已按用户要求停止。保留与移除模式仍需按编辑器分别验证；提供预设或加入白名单不代表已兼容，终端 CLI 不包含在预设覆盖范围内。[兼容性记录 →](docs/COMPATIBILITY.zh-CN.md)
 
 <details>
 <summary>安装前了解：权限与使用限制</summary>

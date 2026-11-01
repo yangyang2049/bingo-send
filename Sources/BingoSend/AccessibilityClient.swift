@@ -157,9 +157,12 @@ enum AccessibilityFailure: LocalizedError {
 @MainActor
 final class AccessibilityClient {
     private let messagingTimeout: Float = 0.15
-    private var lastElement: AXUIElement?
-    private var lastProcessID: pid_t?
-    private var lastTargetID = ""
+    private struct TrackedEditor {
+        let element: AXUIElement
+        let processID: pid_t
+        let id: String
+    }
+    private var trackedEditors: [TrackedEditor] = []
 
     static var isTrusted: Bool { AXIsProcessTrusted() }
 
@@ -225,161 +228,91 @@ final class AccessibilityClient {
         WebScope.allows(url, hosts: hosts)
     }
 
-    /// The default path sends the unchanged draft, including the spoken trigger.
-    /// Optional removal modifies only a verified suffix; clipboard and full-draft
-    /// replacement are never used. An interrupted removal is never rolled back.
+    /// The transaction never overwrites the whole draft or repeats a deletion.
+    /// An untouched draft that changes during preflight is observed afresh.
     func sendDraft(_ draft: FocusedDraft, shortcut: SendShortcut,
-                   allowedPageHosts: [String]?, removeKeyword: String? = nil) async throws {
-        try Task.checkCancellation()
-        guard let source = CGEventSource(stateID: .privateState),
-              let keyDown = CGEvent(keyboardEventSource: source, virtualKey: 36, keyDown: true),
-              let keyUp = CGEvent(keyboardEventSource: source, virtualKey: 36, keyDown: false) else {
-            throw AccessibilityFailure.sendFailure(phase: .beforeSend, reason: .keyboardEventCreation)
-        }
-        keyDown.flags = shortcut.flags
-        keyUp.flags = shortcut.flags
-        var mayHaveModifiedDraft = false
-        do {
-            var expectedText = draft.snapshot.text
-            if let keyword = removeKeyword {
-                expectedText = try await removeTriggerSuffix(draft, keyword: keyword,
-                    source: source, allowedPageHosts: allowedPageHosts,
-                    mayHaveModifiedDraft: &mayHaveModifiedDraft)
+                   allowedPageHosts: [String]?, removeKeyword: String? = nil) async throws -> SendAttemptResult {
+        let session = try NativeSendSession(client: self, draft: draft, shortcut: shortcut,
+            allowedPageHosts: allowedPageHosts)
+        return try await DraftSendTransaction().run(session, removeKeyword: removeKeyword)
+    }
+
+    @MainActor
+    private final class NativeSendSession: DraftSendSession {
+        private let client: AccessibilityClient
+        private let draft: FocusedDraft
+        private let allowedPageHosts: [String]?
+        private let source: CGEventSource
+        private let sendEvents: (CGEvent, CGEvent)
+        var originalText: String { draft.snapshot.text }
+
+        init(client: AccessibilityClient, draft: FocusedDraft, shortcut: SendShortcut,
+             allowedPageHosts: [String]?) throws {
+            guard let source = CGEventSource(stateID: .privateState) else {
+                throw AccessibilityFailure.sendFailure(phase: .beforeSend, reason: .keyboardEventCreation)
             }
-            try validateCurrentContext(draft, expectedText: expectedText,
-                allowedPageHosts: allowedPageHosts, phase: .beforeSend)
-            try validateFocusAndPage(draft, allowedPageHosts: allowedPageHosts, phase: .beforeSend)
+            self.client = client
+            self.draft = draft
+            self.allowedPageHosts = allowedPageHosts
+            self.source = source
+            self.sendEvents = try client.keyboardEvents(source: source, key: 36, flags: shortcut.flags,
+                phase: .beforeSend)
+        }
+
+        func validate(_ expected: SendEditorState, phase: SendPhase) throws {
+            if phase == .beforeSend {
+                try client.validateCurrentContext(draft, expectedText: expected.text,
+                    allowedPageHosts: allowedPageHosts, phase: phase)
+            } else {
+                try client.validateRemovalContext(draft, expectedText: expected.text,
+                    expectedRange: expected.selection, allowedPageHosts: allowedPageHosts)
+            }
+        }
+
+        func readRemovalState() throws -> SendEditorState {
+            let (text, range) = try client.removalState(draft, allowedPageHosts: allowedPageHosts)
+            return SendEditorState(text: text, selection: range)
+        }
+
+        func canSetSelection() throws -> Bool {
+            try client.attributeIsSettable(draft.element, kAXSelectedTextRangeAttribute as String)
+        }
+
+        func setSelection(_ range: NSRange) throws {
+            var range = CFRange(location: range.location, length: range.length)
+            guard let value = AXValueCreate(.cfRange, &range) else {
+                throw AccessibilityFailure.sendFailure(phase: .beforeRemoval, reason: .invalidRangeValue)
+            }
+            let result = AXUIElementSetAttributeValue(draft.element,
+                kAXSelectedTextRangeAttribute as CFString, value)
+            try client.requireAXWrite(result, attribute: kAXSelectedTextRangeAttribute as String)
+        }
+
+        func extendSelectionLeft() throws { try postKey(123, flags: .maskShift) }
+        func deleteSelection() throws { try postKey(51, flags: []) }
+
+        private func postKey(_ key: CGKeyCode, flags: CGEventFlags) throws {
+            let events = try client.keyboardEvents(source: source, key: key, flags: flags)
+            events.0.postToPid(draft.processID)
+            events.1.postToPid(draft.processID)
+        }
+
+        func postSend() throws {
+            try client.validateFocusAndPage(draft, allowedPageHosts: allowedPageHosts, phase: .beforeSend)
             guard NSWorkspace.shared.frontmostApplication?.processIdentifier == draft.processID else {
                 throw AccessibilityFailure.sendFailure(phase: .beforeSend, reason: .foregroundApplication)
             }
             try Task.checkCancellation()
-            keyDown.postToPid(draft.processID)
-            keyUp.postToPid(draft.processID)
-        } catch {
-            if mayHaveModifiedDraft {
-                let cause = error is CancellationError
-                    ? L10n.text(zh: "移除口令操作已取消。", en: "Trigger removal was cancelled.") : error.localizedDescription
-                throw AccessibilityFailure.removalInterrupted(cause: cause)
-            }
-            throw error
-        }
-    }
-
-    private func removeTriggerSuffix(_ draft: FocusedDraft, keyword: String,
-                                     source: CGEventSource, allowedPageHosts: [String]?,
-                                     mayHaveModifiedDraft: inout Bool) async throws -> String {
-        let original = draft.snapshot.text
-        guard let body = TriggerText.removingSuffix(from: original, keyword: keyword) else {
-            throw AccessibilityFailure.sendFailure(phase: .beforeRemoval, reason: .triggerNotMatched)
-        }
-        let caret = NSRange(location: original.utf16.count, length: 0)
-        let suffixRange = NSRange(location: body.utf16.count,
-            length: original.utf16.count - body.utf16.count)
-        try Task.checkCancellation()
-        try validateCurrentContext(draft, expectedText: original,
-            allowedPageHosts: allowedPageHosts, phase: .beforeRemoval)
-
-        var needsKeyboardSelection = true
-        if try attributeIsSettable(draft.element, kAXSelectedTextRangeAttribute as String) {
-            var range = CFRange(location: suffixRange.location, length: suffixRange.length)
-            guard let value = AXValueCreate(.cfRange, &range) else {
-                throw AccessibilityFailure.sendFailure(phase: .beforeRemoval, reason: .invalidRangeValue)
-            }
-            try validateRemovalContext(draft, expectedText: original, expectedRange: caret,
-                allowedPageHosts: allowedPageHosts)
-            try Task.checkCancellation()
-            mayHaveModifiedDraft = true
-            do {
-                let result = AXUIElementSetAttributeValue(draft.element,
-                    kAXSelectedTextRangeAttribute as CFString, value)
-                try requireAXWrite(result, attribute: kAXSelectedTextRangeAttribute as String)
-                try await waitForRemovalState(draft, previousText: original, previousRange: caret,
-                    expectedText: original, expectedRange: suffixRange, allowedPageHosts: allowedPageHosts)
-                needsKeyboardSelection = false
-            } catch {
-                guard permitsKeyboardSelectionFallback(after: error) else { throw error }
-                // Some editors claim the AX setter succeeded but ignore it.
-                // Retry only while the exact untouched original caret remains.
-                try validateRemovalContext(draft, expectedText: original, expectedRange: caret,
-                    allowedPageHosts: allowedPageHosts)
-                try Task.checkCancellation()
-            }
-        }
-        if needsKeyboardSelection {
-            try await selectSuffixWithKeyboard(draft, original: original, suffixRange: suffixRange,
-                source: source, allowedPageHosts: allowedPageHosts,
-                mayHaveModifiedDraft: &mayHaveModifiedDraft)
-        }
-
-        // Some editors report successful AXSelectedText writes without applying
-        // them. Delete the verified selection with one targeted key pair only;
-        // never issue a second deletion after a timeout or delayed readback.
-        let deletionEvents = try keyboardEvents(source: source, key: 51, flags: [])
-        try validateRemovalContext(draft, expectedText: original, expectedRange: suffixRange,
-            allowedPageHosts: allowedPageHosts)
-        try Task.checkCancellation()
-        mayHaveModifiedDraft = true
-        deletionEvents.0.postToPid(draft.processID)
-        deletionEvents.1.postToPid(draft.processID)
-        try await waitForRemovalState(draft, previousText: original, previousRange: suffixRange,
-            expectedText: body, expectedRange: NSRange(location: body.utf16.count, length: 0),
-            allowedPageHosts: allowedPageHosts)
-        try Task.checkCancellation()
-        return body
-    }
-
-    private func permitsKeyboardSelectionFallback(after error: Error) -> Bool {
-        guard let failure = error as? AccessibilityFailure,
-              case let .sendFailure(_, reason) = failure else { return false }
-        switch reason {
-        case .editTimeout:
-            return true
-        case let .axWrite(attribute, code):
-            return attribute == kAXSelectedTextRangeAttribute as String
-                && [AXError.attributeUnsupported, .notImplemented].contains { Int($0.rawValue) == code }
-        default:
-            return false
-        }
-    }
-
-    private func selectSuffixWithKeyboard(_ draft: FocusedDraft, original: String, suffixRange: NSRange,
-                                          source: CGEventSource, allowedPageHosts: [String]?,
-                                          mayHaveModifiedDraft: inout Bool) async throws {
-        // Read-only AX editors may still expose exact selection ranges. Move
-        // one grapheme at a time and confirm every resulting UTF-16 range.
-        guard let suffix = Range(suffixRange, in: original),
-              original.indices.contains(suffix.lowerBound), original[suffix].count <= 64 else {
-            throw AccessibilityFailure.sendFailure(phase: .beforeRemoval, reason: .triggerRemovalUnsupported)
-        }
-        var start = original.endIndex
-        var previousRange = NSRange(location: original.utf16.count, length: 0)
-        try validateRemovalContext(draft, expectedText: original, expectedRange: previousRange,
-            allowedPageHosts: allowedPageHosts)
-        while start > suffix.lowerBound {
-            let next = original.index(before: start)
-            guard next >= suffix.lowerBound else {
-                throw AccessibilityFailure.sendFailure(phase: .beforeRemoval, reason: .triggerRemovalUnsupported)
-            }
-            let nextRange = NSRange(next..<original.endIndex, in: original)
-            let events = try keyboardEvents(source: source, key: 123, flags: .maskShift)
-            try validateRemovalContext(draft, expectedText: original, expectedRange: previousRange,
-                allowedPageHosts: allowedPageHosts)
-            try Task.checkCancellation()
-            mayHaveModifiedDraft = true
-            events.0.postToPid(draft.processID)
-            events.1.postToPid(draft.processID)
-            try await waitForRemovalState(draft, previousText: original, previousRange: previousRange,
-                expectedText: original, expectedRange: nextRange, allowedPageHosts: allowedPageHosts)
-            start = next
-            previousRange = nextRange
+            sendEvents.0.postToPid(draft.processID)
+            sendEvents.1.postToPid(draft.processID)
         }
     }
 
     private func keyboardEvents(source: CGEventSource, key: CGKeyCode,
-                                flags: CGEventFlags) throws -> (CGEvent, CGEvent) {
+                                flags: CGEventFlags, phase: SendPhase = .beforeRemoval) throws -> (CGEvent, CGEvent) {
         guard let down = CGEvent(keyboardEventSource: source, virtualKey: key, keyDown: true),
               let up = CGEvent(keyboardEventSource: source, virtualKey: key, keyDown: false) else {
-            throw AccessibilityFailure.sendFailure(phase: .beforeRemoval, reason: .keyboardEventCreation)
+            throw AccessibilityFailure.sendFailure(phase: phase, reason: .keyboardEventCreation)
         }
         down.flags = flags
         up.flags = flags
@@ -452,39 +385,6 @@ final class AccessibilityClient {
                 reason: .cursor(expected: expectedRange, actual: finalSelection))
         }
         try validateFocusAndPage(draft, allowedPageHosts: allowedPageHosts, phase: .beforeRemoval)
-    }
-
-    private func waitForRemovalState(_ draft: FocusedDraft, previousText: String, previousRange: NSRange,
-                                    expectedText: String, expectedRange: NSRange,
-                                    allowedPageHosts: [String]?) async throws {
-        let deadline = ProcessInfo.processInfo.systemUptime + 0.25
-        var lastRange = previousRange
-        var lastTextState: RemovalTextState = .original
-        for attempt in 0..<12 {
-            let (text, range) = try removalState(draft, allowedPageHosts: allowedPageHosts)
-            if sameText(text, expectedText), range == expectedRange {
-                try validateRemovalContext(draft, expectedText: expectedText, expectedRange: expectedRange,
-                    allowedPageHosts: allowedPageHosts)
-                return
-            }
-            // AX value and selection are separate IPC reads; a single edit can
-            // expose either old/new combination briefly. Wait without posting
-            // more input, and accept only the complete expected state above.
-            guard sameText(text, previousText) || sameText(text, expectedText) else {
-                throw AccessibilityFailure.sendFailure(phase: .beforeRemoval, reason: .text)
-            }
-            guard range == previousRange || range == expectedRange else {
-                throw AccessibilityFailure.sendFailure(phase: .beforeRemoval,
-                    reason: .cursor(expected: expectedRange, actual: range))
-            }
-            lastRange = range
-            lastTextState = sameText(text, expectedText)
-                ? (sameText(text, previousText) ? .unchanged : .expected) : .original
-            guard attempt < 11, ProcessInfo.processInfo.systemUptime < deadline else { break }
-            try await Task.sleep(nanoseconds: 15_000_000)
-        }
-        throw AccessibilityFailure.sendFailure(phase: .beforeRemoval,
-            reason: .editTimeout(expected: expectedRange, actual: lastRange, textState: lastTextState))
     }
 
     private func frontmostApplication() throws -> NSRunningApplication {
@@ -629,13 +529,17 @@ final class AccessibilityClient {
     }
 
     private func targetID(for element: AXUIElement, pid: pid_t) -> String {
-        if lastProcessID == pid, let previous = lastElement, CFEqual(previous, element) {
-            return lastTargetID
+        if let index = trackedEditors.firstIndex(where: {
+            $0.processID == pid && CFEqual($0.element, element)
+        }) {
+            let editor = trackedEditors.remove(at: index)
+            trackedEditors.append(editor)
+            return editor.id
         }
-        lastElement = element
-        lastProcessID = pid
-        lastTargetID = "\(pid):\(UUID().uuidString)"
-        return lastTargetID
+        let editor = TrackedEditor(element: element, processID: pid, id: "\(pid):\(UUID().uuidString)")
+        trackedEditors.append(editor)
+        if trackedEditors.count > 32 { trackedEditors.removeFirst() }
+        return editor.id
     }
 
     private func ancestorPageURL(_ element: AXUIElement) -> URL? {

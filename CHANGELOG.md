@@ -1,6 +1,19 @@
 # Changelog / 更新记录
 
 ## English
+
+### 1.3.4 — 2026-11-01
+
+- Keep the selected run mode after any failed send attempt, including repeated failures. Only the current transaction stops.
+- Suppress the failed draft and its possible delayed deletion result until new input; preserve editor identity across focus switches and never retry an uncertain deletion.
+- Replace the automatic-pause warning with an attempt-skipped notice. Clean-install and permission results are recorded separately.
+
+### 1.3.3 — local fix, 2026-11-01
+
+- Defer a send attempt when dictation resumes before deletion, with strict body/caret verification after suffix selection; wait afresh for the newer final keyword.
+- Give asynchronous editor acknowledgements a full bounded wait without repeating deletion or bypassing context checks.
+- Show the specific failure in the pause banner. Add transaction and rearming regressions; native compatibility checks are recorded separately.
+
 +
 +### 1.3.2 — preview, 2026-10-30
 +
@@ -56,6 +69,19 @@
 - Pass 28 core automated tests and actual send tests in a local WKWebView editor and a user's Codex app.
 
 ## 简体中文
+
+### 1.3.4 — 2026-11-01
+
+- 发送失败只中止本次尝试，连续失败也不自动切到「暂停」。
+- 排除失败草稿及可能延迟返回的删除结果，等待新输入；切换焦点后仍识别原输入框，不重试不确定的删除。
+- 提示改为「本次已跳过」，保留后续自动发送；全新安装与授权实测另行记录。
+
+### 1.3.3 — 本地修复，2026-11-01
+
+- 删除前遇到后续语音上屏时，取消本次尝试并重新等待；已经选中口令时，额外核验原正文完整且光标回到末尾。删除后结果不明仍暂停。
+- 为编辑器的异步更新提供有界等待，不重复删除、不跳过上下文核验。
+- 在红字旁显示具体原因，补充发送流程与重新等待的回归测试；实际编辑器兼容性另行记录。
+
 +
 +### 1.3.2 — 预览版，2026-10-30
 +

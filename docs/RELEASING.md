@@ -14,8 +14,8 @@ swift test
 
 The output is written to `dist/`:
 
-- `BingoSend-1.1.1-macOS-universal.dmg`
-- `BingoSend-1.1.1-macOS-universal.zip`
+- `BingoSend-1.3.4-macOS-universal.dmg`
+- `BingoSend-1.3.4-macOS-universal.zip`
 - `SHA256SUMS.txt`
 
 The default build targets the current machine's architecture. `--universal` builds `arm64-apple-macosx13.0` and `x86_64-apple-macosx13.0` separately and combines them with lipo. Including both architectures does not mean that operation on Intel hardware or the minimum macOS version has been verified on devices.
@@ -73,11 +73,11 @@ Check `git status` before committing. Do not commit `.build/`, `build/`, `dist/`
 `Prepare draft release` supports manual dispatch only. First update the public version and internal build number in Info.plist, the changelog, and compatibility records. Commit the changes, then create and push the corresponding tag:
 
 ```sh
-git tag -a v1.1.1 -m "Bingo Send 1.1.1"
-git push origin v1.1.1
+git tag -a v1.3.4 -m "Bingo Send 1.3.4"
+git push origin v1.3.4
 ```
 
-Once the workflow is present on the default branch, open Actions → Prepare draft release → Run workflow and enter the version without `v`, such as `1.1.1`. The workflow checks out an existing tag, requires its Info.plist version to match, runs tests, builds a universal app, packages it, uploads an Actions artifact, and creates a **draft release**. It does not publish the release automatically.
+Once the workflow is present on the default branch, open Actions → Prepare draft release → Run workflow and enter the version without `v`, such as `1.3.4`. The workflow checks out an existing tag, requires its Info.plist version to match, runs tests, builds a universal app, packages it, uploads an Actions artifact, and creates a **draft release**. It does not publish the release automatically.
 
 The workflow uploads ad hoc signed, unnotarized packages. To publish locally built packages signed with Developer ID and notarized, follow the local steps above, upload those files to the draft release, replace the ad hoc signed attachments with the same names, and update the notes and checksums. Do not mix the two sets of artifacts.
 

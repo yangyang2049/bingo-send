@@ -12,7 +12,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/yangyang2049/bingo-send/releases/download/v1.2.0/BingoSend-1.2.0-macOS-universal.dmg"><img src="https://img.shields.io/badge/Download_for_macOS-1.2.0-111111?style=for-the-badge&logo=apple&logoColor=white" alt="Download Bingo Send 1.2.0 for macOS"></a>
+  <a href="https://github.com/yangyang2049/bingo-send/releases/download/v1.3.4/BingoSend-1.3.4-macOS-universal.dmg"><img src="https://img.shields.io/badge/Download_for_macOS-1.3.4-111111?style=for-the-badge&logo=apple&logoColor=white" alt="Download Bingo Send 1.3.4 for macOS"></a>
 </p>
 
 <p align="center">
@@ -25,11 +25,11 @@ Bingo Send is a standalone macOS menu bar app. It watches the focused editor in 
 “Review this page, Bingo.” → text settles → sends “Review this page, Bingo.”
 ```
 
-> **1.3.2 preview:** one run-mode selector—Paused / Test detection / Auto send—replaces the two overlapping switches. [Changes and test checklist](docs/RELEASE_NOTES_1.3.2.md). The stable download above remains 1.2.0 until the preview is released.
+> **1.3.4:** failed attempts no longer switch Auto send to Paused. New input can continue, while the same failed draft is not retried automatically. Includes up to three keywords, clear run modes, and first-launch permission guidance. [Release notes](docs/RELEASE_NOTES_1.3.4.md).
 
 ## Start in three steps
 
-1. **Install.** Open the [universal DMG](https://github.com/yangyang2049/bingo-send/releases/download/v1.2.0/BingoSend-1.2.0-macOS-universal.dmg), drag Bingo Send into Applications, and open it. The package contains Apple Silicon and Intel binaries.
+1. **Install.** Open the [universal DMG](https://github.com/yangyang2049/bingo-send/releases/download/v1.3.4/BingoSend-1.3.4-macOS-universal.dmg), drag Bingo Send into Applications, and open it. The package contains Apple Silicon and Intel binaries.
 2. **Authorize and choose your setup.** First launch requests Accessibility permission; allow access yourself in System Settings. If no prompt appears, use Open System Settings. After access is granted, the entry moves to Permissions & diagnostics at the bottom. Choose an app or website from **App presets**, or add an app manually. For a website, select your browser and review the allowed domains and send shortcut; Codex defaults to **Return**.
 3. **Set keywords and choose a mode.** Configure up to 3 final keywords. Choose **Test detection** for a sound without editing or sending; then choose **Auto send** for a separate send test. **Paused** stops observation. Every launch starts paused; saved keywords, app rules, and removal settings are retained.
 
@@ -46,7 +46,7 @@ The interface follows your system’s preferred language: English or Simplified 
 
 ## Compatibility
 
-**Codex was user-tested successfully with 1.1.0 in keep mode.** Version 1.2.0 adds setup presets, keyword choices, optional removal, a new icon, and an English/Simplified Chinese interface; see its [release notes](docs/RELEASE_NOTES_1.2.0.md) for verification status. Other apps and websites—including Claude, Gemini, Grok, WorkBuddy, DeepSeek, Kimi, and HuggingChat—**still need separate validation**. Keep mode and removal mode need separate tests. A preset or allowlist entry is not a compatibility guarantee. Terminal CLI tools are outside the preset coverage. [Compatibility details →](docs/COMPATIBILITY.md)
+**The user confirmed normal use after a clean 1.3.4 installation and Accessibility authorization on Apple Silicon.** All 104 automated tests pass. This does not establish every editor's removal or continuous-dictation behavior: the additional local editor matrix was stopped at the user's request. Keep mode and removal mode need separate per-editor verification. A preset or allowlist entry is not a compatibility guarantee. Terminal CLI tools are outside the preset coverage. [Compatibility details →](docs/COMPATIBILITY.md)
 
 <details>
 <summary>Before you install: permissions and limitations</summary>

@@ -14,8 +14,8 @@ swift test
 
 输出位于 `dist/`：
 
-- `BingoSend-1.1.1-macOS-universal.dmg`
-- `BingoSend-1.1.1-macOS-universal.zip`
+- `BingoSend-1.3.4-macOS-universal.dmg`
+- `BingoSend-1.3.4-macOS-universal.zip`
 - `SHA256SUMS.txt`
 
 默认构建为当前机器架构；`--universal` 分别构建 `arm64-apple-macosx13.0` 和 `x86_64-apple-macosx13.0` 后用 lipo 合并。两种二进制并不代表最低系统版本和 Intel 运行行为都已做设备验证。
@@ -73,11 +73,11 @@ gh repo create bingo-send --public --source . --remote origin --push
 `Prepare draft release` 只支持手动触发。先更新 Info.plist 的公开版本和内部构建号、CHANGELOG、兼容性记录，提交后创建并推送对应 tag：
 
 ```sh
-git tag -a v1.1.1 -m "Bingo Send 1.1.1"
-git push origin v1.1.1
+git tag -a v1.3.4 -m "Bingo Send 1.3.4"
+git push origin v1.3.4
 ```
 
-在默认分支已包含工作流的前提下，打开 Actions → Prepare draft release → Run workflow，输入不带 v 的版本号（如 `1.1.1`）。它只 checkout 已存在的 tag，要求 Info.plist 版本一致，测试、通用构建、打包后上传 Actions Artifact，并创建 **Draft Release**。工作流不自动公开发布。
+在默认分支已包含工作流的前提下，打开 Actions → Prepare draft release → Run workflow，输入不带 v 的版本号（如 `1.3.4`）。它只 checkout 已存在的 tag，要求 Info.plist 版本一致，测试、通用构建、打包后上传 Actions Artifact，并创建 **Draft Release**。工作流不自动公开发布。
 
 工作流上传的是 ad-hoc 未公证包。如需发布本机 Developer ID 签名且已公证的包，先按前述本机步骤生成，再通过 Release 草稿页面上传对应文件，替换同名临时签名附件，更新说明和校验文件；不要混用两套产物。
 

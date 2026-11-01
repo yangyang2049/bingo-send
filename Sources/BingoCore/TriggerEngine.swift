@@ -159,11 +159,35 @@ public struct TriggerEngine {
 
     private var previousSnapshot: DraftSnapshot?
     private var candidate: Candidate?
+    private var failedDrafts: [String: [String]] = [:]
+    private var failedTargetOrder: [String] = []
 
     public init() {}
 
     public mutating func reset() {
         previousSnapshot = nil
+        candidate = nil
+    }
+
+    /// Keep automatic mode available after an error, but never retry its old
+    /// draft or mistake a delayed deletion acknowledgement for new user input.
+    /// This session-only guard survives focus/configuration resets. A real new
+    /// text edit releases it. Bound retained text to the adapter's 32 editors.
+    public mutating func recordFailedAttempt(_ snapshot: DraftSnapshot, possibleEditedText: String?) {
+        failedDrafts[snapshot.targetID] = [snapshot.text] + (possibleEditedText.map { [$0] } ?? [])
+        failedTargetOrder.removeAll { $0 == snapshot.targetID }
+        failedTargetOrder.append(snapshot.targetID)
+        if failedTargetOrder.count > 32 {
+            failedDrafts.removeValue(forKey: failedTargetOrder.removeFirst())
+        }
+        reset()
+    }
+
+    /// A send was abandoned before deletion because input resumed. Keep its
+    /// original snapshot as the baseline so a newer commit starts a fresh wait,
+    /// even if it arrived while the adapter was busy. An unchanged draft stays idle.
+    public mutating func resumeAfterInputChange(from snapshot: DraftSnapshot) {
+        previousSnapshot = snapshot
         candidate = nil
     }
 
@@ -180,6 +204,15 @@ public struct TriggerEngine {
         keywords: [String],
         delay: TimeInterval
     ) -> TriggerAction? {
+        if let blocked = failedDrafts[snapshot.targetID] {
+            if blocked.contains(where: { $0.utf16.elementsEqual(snapshot.text.utf16) }) {
+                previousSnapshot = snapshot
+                candidate = nil
+                return nil
+            }
+            failedDrafts.removeValue(forKey: snapshot.targetID)
+            failedTargetOrder.removeAll { $0 == snapshot.targetID }
+        }
         let keywords = TriggerMatcher.normalizedKeywords(keywords)
         guard let previous = previousSnapshot,
               previous.targetID == snapshot.targetID else {

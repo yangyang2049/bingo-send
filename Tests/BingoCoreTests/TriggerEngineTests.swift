@@ -200,4 +200,95 @@ final class TriggerEngineTests: XCTestCase {
         XCTAssertNil(engine.observe(draft("正文 Bingo"), now: 8, keywords: ["Bingo"], delay: 1))
         XCTAssertNil(engine.observe(draft("正文 Bingo"), now: 20, keywords: ["Bingo"], delay: 1))
     }
+
+    func testResumedInputDuringSendRearmsOnlyTheNewerDraft() throws {
+        var engine = TriggerEngine()
+        _ = engine.observe(draft(""), now: 0, keywords: ["发送"], delay: 0.8)
+        let first = draft("测试正文发送。")
+        _ = engine.observe(first, now: 1, keywords: ["发送"], delay: 0.8)
+        XCTAssertNotNil(engine.observe(first, now: 2, keywords: ["发送"], delay: 0.8))
+        engine.resumeAfterInputChange(from: first)
+        let newer = draft("测试正文发送发送。")
+        XCTAssertNil(engine.observe(newer, now: 2.2, keywords: ["发送"], delay: 0.8))
+        XCTAssertNil(engine.observe(newer, now: 2.5, keywords: ["发送"], delay: 0.8))
+        let action = try XCTUnwrap(engine.observe(newer, now: 3.1, keywords: ["发送"], delay: 0.8))
+        XCTAssertEqual(action.snapshot, newer)
+        XCTAssertNil(engine.observe(newer, now: 10, keywords: ["发送"], delay: 0.8))
+    }
+
+    func testResumedAttemptDoesNotRetryTheSameUnchangedDraft() {
+        var engine = TriggerEngine()
+        let original = draft("测试正文发送。")
+        engine.resumeAfterInputChange(from: original)
+        XCTAssertNil(engine.observe(original, now: 1, keywords: ["发送"], delay: 0.8))
+        XCTAssertNil(engine.observe(original, now: 10, keywords: ["发送"], delay: 0.8))
+    }
+
+    func testContinuationAfterAbandonedAttemptDoesNotSendAMiddleKeyword() {
+        var engine = TriggerEngine()
+        engine.resumeAfterInputChange(from: draft("测试正文发送。"))
+        let continued = draft("测试正文发送的含义")
+        XCTAssertNil(engine.observe(continued, now: 1, keywords: ["发送"], delay: 0.8))
+        XCTAssertNil(engine.observe(continued, now: 10, keywords: ["发送"], delay: 0.8))
+    }
+
+    func testFailedDraftAndDelayedDeletionResultNeverRearmEachOther() {
+        var engine = TriggerEngine()
+        let original = draft("测试正文发送发送。")
+        let edited = draft("测试正文发送")
+        engine.recordFailedAttempt(original, possibleEditedText: edited.text)
+        for (time, snapshot) in [(1.0, original), (3.0, original), (4.0, edited),
+                                 (6.0, edited), (7.0, original), (9.0, original)] {
+            XCTAssertNil(engine.observe(snapshot, now: time, keywords: ["发送"], delay: 0.8))
+        }
+    }
+
+    func testFailureGuardSurvivesResetAndFocusSwitch() {
+        var engine = TriggerEngine()
+        let original = draft("测试正文发送发送。")
+        let edited = draft("测试正文发送")
+        engine.recordFailedAttempt(original, possibleEditedText: edited.text)
+        _ = engine.observe(original, now: 1, keywords: ["发送"], delay: 0.8)
+        engine.reset()
+        _ = engine.observe(draft("", target: "field-b"), now: 2, keywords: ["发送"], delay: 0.8)
+        XCTAssertNil(engine.observe(edited, now: 3, keywords: ["发送"], delay: 0.8))
+        XCTAssertNil(engine.observe(edited, now: 5, keywords: ["发送"], delay: 0.8))
+    }
+
+    func testNewInputAfterFailureStillSendsOnceAfterAFreshWait() {
+        var engine = TriggerEngine()
+        let original = draft("测试正文发送发送。")
+        engine.recordFailedAttempt(original, possibleEditedText: "测试正文发送")
+        _ = engine.observe(original, now: 1, keywords: ["发送"], delay: 0.8)
+        let newer = draft("重新输入的一条消息发送。")
+        XCTAssertNil(engine.observe(newer, now: 2, keywords: ["发送"], delay: 0.8))
+        XCTAssertNil(engine.observe(newer, now: 2.5, keywords: ["发送"], delay: 0.8))
+        XCTAssertNotNil(engine.observe(newer, now: 3, keywords: ["发送"], delay: 0.8))
+        XCTAssertNil(engine.observe(newer, now: 10, keywords: ["发送"], delay: 0.8))
+    }
+
+    func testFailureInOneEditorDoesNotBlockNewInputInAnotherEditor() {
+        var engine = TriggerEngine()
+        engine.recordFailedAttempt(draft("失败的正文发送。"), possibleEditedText: "失败的正文")
+        _ = engine.observe(draft("", target: "field-b"), now: 1, keywords: ["发送"], delay: 0.8)
+        let other = draft("另一个输入框的新消息发送。", target: "field-b")
+        XCTAssertNil(engine.observe(other, now: 2, keywords: ["发送"], delay: 0.8))
+        XCTAssertNotNil(engine.observe(other, now: 3, keywords: ["发送"], delay: 0.8))
+    }
+
+    func testKeepModeFailureDoesNotRetryItsUnchangedDraft() {
+        var engine = TriggerEngine()
+        let original = draft("保留完整正文发送。")
+        engine.recordFailedAttempt(original, possibleEditedText: nil)
+        XCTAssertNil(engine.observe(original, now: 1, keywords: ["发送"], delay: 0.8))
+        XCTAssertNil(engine.observe(original, now: 10, keywords: ["发送"], delay: 0.8))
+    }
+
+    func testFirstUnreadablePostFailureDraftBecomesBaseline() {
+        var engine = TriggerEngine()
+        engine.recordFailedAttempt(draft("测试正文发送。"), possibleEditedText: "测试正文")
+        let changedDuringFailure = draft("错误处理期间已变化的正文发送。")
+        XCTAssertNil(engine.observe(changedDuringFailure, now: 1, keywords: ["发送"], delay: 0.8))
+        XCTAssertNil(engine.observe(changedDuringFailure, now: 10, keywords: ["发送"], delay: 0.8))
+    }
 }

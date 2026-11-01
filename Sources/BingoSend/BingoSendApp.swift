@@ -170,10 +170,14 @@ private struct SettingsView: View {
                     Text(L10n.text(zh: "测试识别期间，移除设置不生效。切到自动发送后才会按此设置处理。", en: "Removal does not apply during detection tests. It applies only in Auto send."))
                         .font(.caption).foregroundStyle(.secondary)
                 }
-                if model.sendFailureMessage != nil {
-                    Label(L10n.text(zh: "发送遇到错误，已自动暂停。请查看「最近一次结果」并检查草稿，确认后重新开启。", en: "Sending paused after an error. Check the last result and your draft before enabling it again."),
+                if let failure = model.sendFailureMessage {
+                    Label(L10n.text(zh: "上次发送未完成，已跳过该次尝试。请检查原草稿；不会自动重试同一份草稿，后续新输入仍按所选模式处理。", en: "The last send attempt was skipped. Check the draft. The same draft will not be retried automatically; new input still follows the selected mode."),
                           systemImage: "exclamationmark.triangle")
-                        .font(.caption).foregroundStyle(.red)
+                        .font(.caption).foregroundStyle(.orange)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Text(L10n.text(zh: "本次原因：\(failure)", en: "Error: \(failure)"))
+                        .font(.caption).foregroundStyle(.orange)
+                        .textSelection(.enabled)
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 Text(L10n.text(zh: "每次启动均暂停。切换模式或修改配置后，请在目标输入框输入一条新内容；已有草稿不会立即触发。测试识别成功仅代表能识别口令，实际发送和移除需分别验证。", en: "Every launch starts paused. After changing mode or settings, enter new text in the target editor; existing drafts do not trigger immediately. Detection does not verify sending or removal; test each separately."))

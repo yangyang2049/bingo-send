@@ -74,7 +74,7 @@ If you turn it on, the app removes only the matched final keyword and all punctu
 
 Removal changes the focused draft and may change its selection. The app checks the original draft and context, performs the edit only if the editor supports it, then reads back and verifies the remaining text, focus, caret, and page context before issuing the send shortcut. Detection-only mode never edits, even when this toggle is on, so test actual removal with an unimportant new message after detection succeeds.
 
-If the editor cannot support or verify the edit, or the context changes, the app stops and pauses without sending. An interruption after an edit can leave the draft or selection changed. Inspect the original input before retrying; the app does not automatically restore old text over potentially newer input. Verify keep mode and removal mode independently for each app or website. Neither mode uses the clipboard.
+If the editor cannot support or verify the edit, or the context changes, the current attempt stops without sending. Starting in 1.3.4, even repeated failures leave the selected run mode unchanged. The same failed draft and a possible delayed deletion result are not retried automatically; the tool waits for new input. An interruption after an edit can leave the draft or selection changed. Inspect the original input before entering a new command; the app does not automatically restore old text over potentially newer input. Verify keep mode and removal mode independently for each app or website. Neither mode uses the clipboard.
 
 ## Troubleshooting
 
@@ -86,7 +86,7 @@ First check that **Auto send** is selected. Then check the app’s send shortcut
 
 **Latest result** at the top of the window preserves the latest action result. Failure messages identify causes such as a change in focus, draft text, or caret position. They do not include the draft text.
 
-After a failure, pause the tool and check the original draft before following the status guidance. If removal was enabled, the draft or selection may already have changed. If the tool cannot confirm the expected draft, focus, and caret, it will not send. Do not treat a failure status as proof that a message was sent.
+After a failure, check the original draft and follow the displayed guidance. The selected mode remains available for subsequent new input; choose Paused yourself whenever needed. If removal was enabled, the draft or selection may already have changed. If the tool cannot confirm the expected draft, focus, and caret, it will not send. Do not treat a failure status as proof that a message was sent.
 
 **The keyword is never detected.**
 
